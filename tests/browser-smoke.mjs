@@ -18,9 +18,9 @@ const check = async (text) => {
 try {
   await page.goto(url, { waitUntil: "networkidle" });
   await page.screenshot({ path: "outputs/desktop.png", fullPage: true });
-  assert.equal(
+  assert.match(
     await page.getByRole("heading", { level: 1 }).innerText(),
-    "Good work starts here.",
+    /Choose a company/,
   );
   await page.locator(".company-card").first().click();
   await dialog().locator("select").first().selectOption("Other");
@@ -210,7 +210,7 @@ try {
   await page.getByRole("alert").waitFor();
   await page.locator("input[name=password]").fill("civilhub123");
   await page.getByRole("button", { name: "Enter workspace" }).click();
-  await page.getByRole("heading", { name: "Good work starts here." }).waitFor();
+  await page.getByRole("heading", { name: /Choose a company/ }).waitFor();
   await page.screenshot({ path: "outputs/mobile-final.png", fullPage: true });
   assert.deepEqual(errors, []);
   console.log(
