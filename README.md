@@ -13,6 +13,19 @@ npm run dev
 
 Open http://127.0.0.1:5173. The sample workspace opens immediately. Log out to review the demo login: `demo@civilhub.my` / `civilhub123`.
 
+### Supabase connection settings
+
+Create `.env.local` in this project root, next to `package.json`:
+
+```dotenv
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
+
+Vite loads these settings from the project root even though the frontend lives in `client/`. Restart `npm run dev` after changing the environment file. The older `VITE_SUPABASE_ANON_KEY` name is accepted as a fallback. `.env.local` is ignored by Git; on Netlify, configure the same names in project environment settings and rebuild.
+
+These settings configure the Supabase client only. They do not apply database migrations or switch demo records to cloud storage. The CivilHub schema and database access policies have now been applied; real frontend authentication and an authenticated repository still need to be connected. The applied schema is in `supabase/migrations/20261102183943_civilhub_foundation.sql`.
+
 ```sh
 npm test          # 21 calculation and persisted-workflow tests
 npm run build    # strict TypeScript check and production Vite build
@@ -48,11 +61,21 @@ Report dates select registered jobs and their cost entries by their own dates. W
 - `client/src/services/files.ts`: demo document storage boundary; replace with private Supabase Storage and signed URLs.
 - `client/src/services/supabase.ts`: optional Supabase client factory. Environment variables are documented in `.env.example`. It is not activated by the demo.
 - `server/`: Express 5 + serverless-http scaffold. `/api/health` reports that the database is disconnected. Other API routes return 501 until real services and JWT verification are implemented; they never silently accept production records.
-- `supabase/migrations/0001_workspace_foundation.sql`: **unapplied** PostgreSQL foundation, exact numeric money, foreign keys, workspace isolation, RLS, admin writes/staff reads, private file policies and an explicit company/client onboarding RPC. Supabase Auth owns password hashing and sessions. Review and test this migration in a development Supabase project before use.
+- `supabase/migrations/20261102183943_civilhub_foundation.sql`: PostgreSQL foundation applied to project `eczpcryjwjctaljfpaod` as migration `20261102183943`. Includes nine RLS-protected application tables, exact numeric money, tenant-safe foreign keys, admin writes/staff reads, a private `job-documents` bucket and an authenticated onboarding RPC. Supabase Auth owns password hashing and sessions. The migration contains no demo financial records or account credentials.
 - `netlify.toml`: Vite client + Express serverless function configuration for the later integration. No old Render backend or credentials are included.
 
 Before production integration: connect Supabase Auth and JWT verification; implement the authenticated repository; atomically allocate job numbers and clients on the server; add audit identities, paginated APIs, transaction boundaries and storage cleanup; test RLS as two independent users/workspaces; complete production upload validation and security/backup checks. Do not put a Supabase service-role key in VITE\_ variables.
 
 ## Deployment
 
-This demo can be hosted as a static SPA. `npm run build` emits `dist/`. Netlify rewrites are included. `.openai/hosting.json` declares the private Sites demo; no hosted database is used. The integration scaffold and SQL have not been deployed as a production service.
+This demo can be hosted as a static SPA. `npm run build` emits `dist/`. Netlify rewrites are included. `.openai/hosting.json` declares the private Sites demo. The database schema has been applied to the configured Supabase project. The Express integration scaffold has not been deployed as a production service, and the frontend still uses demo storage until authentication and the live repository are connected.
+
+## Supabase database setup status
+
+Migration `20261102183943_civilhub_foundation.sql` created `users`, `workspaces`, `workspace_members`, `companies`, `clients`, `jobs`, `job_expenses`, `overhead_costs`, and `attachments`. All nine tables have RLS and explicit authenticated grants. Anonymous callers cannot read business records. Membership changes have no direct client write permission, and audit/ownership columns cannot be edited by frontend callers.
+
+The private `job-documents` bucket accepts PDF/JPG/PNG files up to 5 MB. Object paths begin with the workspace UUID; members can read and admins can upload/delete within their workspace. File deletion must eventually use the Storage API; deleting a job cascades its attachment metadata, while the application must clean up the corresponding stored objects.
+
+No workspace, user account or sample financial record was created by the migration. Once real Supabase sign-in is connected, call `create_construction_workspace` with a workspace name as the signed-in user. It atomically creates that user's profile, their workspace/admin membership, the five default companies and the Sunway client. The function is not available to anonymous users.
+
+The migration was validated against an isolated local PostgreSQL database before application. `tests/sql/bootstrap-local.sql` is a **local-test-only** mock of Supabase Auth/Storage, and `tests/sql/workspace-policies.sql` tests onboarding, financial integrity, cross-workspace isolation, admin/staff permissions, document permissions, recurring duplicates and cascade deletion. All test records are rolled back. Do not apply the bootstrap file to a hosted Supabase project.
