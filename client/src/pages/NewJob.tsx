@@ -66,9 +66,9 @@ export default function NewJob() {
             YOUR CONSTRUCTION WORKSPACE
           </div>
           <h1>
-            Good work starts here<span className="heading-dot">.</span>
+            Choose a company <span className="count">05</span>
           </h1>
-          <p>Five companies. Every job. One clear picture.</p>
+          <p>Select a company to register a new job.</p>
         </div>
         <div className="page-heading-actions">
           <button className="button" onClick={exportJobs}>
@@ -82,18 +82,6 @@ export default function NewJob() {
         </div>
       </div>
       <section className="company-section">
-        <div className="section-heading">
-          <div>
-            <h2>
-              Choose a company <span className="count">05</span>
-            </h2>
-            <p>Select a company to register a new job.</p>
-          </div>
-          <span className="subtle-label">
-            <Building2 size={14} />
-            Your group of companies
-          </span>
-        </div>
         <div className="company-grid">
           {companies.map((c, i) => {
             const jobs = w.jobs.filter((j) => j.companyId === c.id);
