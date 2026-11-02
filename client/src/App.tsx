@@ -155,21 +155,6 @@ function Login({ onLogin }: { onLogin: () => void }) {
               Enter workspace <ArrowRight size={17} />
             </button>
           </form>
-          <div className="demo-credentials">
-            <Sparkles size={17} />
-            <div>
-              <strong>Take CivilHub for a spin</strong>
-              <p>
-                Email: demo@civilhub.my
-                <br />
-                Password: civilhub123
-              </p>
-              <small>
-                This demo saves data in your browser. Real authentication will
-                be connected during integration.
-              </small>
-            </div>
-          </div>
         </div>
         <span className="login-footer">
           © 2026 CivilHub. Built to bring it all together.

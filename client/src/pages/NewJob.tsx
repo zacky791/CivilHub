@@ -81,33 +81,6 @@ export default function NewJob() {
           </button>
         </div>
       </div>
-      <div className="stats-grid">
-        <StatCard
-          label="Total registered jobs"
-          value={String(f.jobs).padStart(2, "0")}
-          note={`${w.jobs.filter((j) => j.status === "Active").length} jobs currently active`}
-          type="jobs"
-        />
-        <StatCard
-          label="Total job value"
-          value={money(f.revenue)}
-          note="Across all five companies"
-          type="value"
-        />
-        <StatCard
-          label="Direct job expenses"
-          value={money(f.direct)}
-          note="All recorded project costs"
-          type="expense"
-        />
-        <StatCard
-          label="Gross job balance"
-          value={money(f.gross)}
-          note={`${f.revenue ? ((f.gross / f.revenue) * 100).toFixed(1) : 0}% of registered job value`}
-          type="balance"
-          accent
-        />
-      </div>
       <section className="company-section">
         <div className="section-heading">
           <div>
@@ -241,20 +214,6 @@ export default function NewJob() {
             <Link to="/reports" className="insight-footer">
               Explore financial reports <ArrowRight size={15} />
             </Link>
-          </section>
-          <section className="quick-tip">
-            <span className="tip-icon">
-              <Sparkles size={18} />
-            </span>
-            <h3>Built for your next big job.</h3>
-            <p>
-              Keep invoices, costs and site details together. Your future self
-              will thank you.
-            </p>
-            <button className="text-link" onClick={() => newJob()}>
-              Register a job <ArrowRight size={14} />
-            </button>
-            <div className="tip-decoration" />
           </section>
         </aside>
       </div>
