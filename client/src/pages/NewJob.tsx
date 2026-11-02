@@ -1,37 +1,14 @@
-import {
-  ArrowRight,
-  ArrowUpRight,
-  BriefcaseBusiness,
-  Building2,
-  CalendarDays,
-  Check,
-  ChevronRight,
-  CircleHelp,
-  Download,
-  FilePlus2,
-  Plus,
-  ReceiptText,
-  Sparkles,
-} from "lucide-react";
+import { ArrowUpRight, Download, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useActions } from "../lib/actions";
 import { companies, companyById } from "../lib/constants";
-import { dateLabel, exportCSV, financials, money, sum } from "../lib/finance";
+import { dateLabel, exportCSV, money, sum } from "../lib/finance";
 import { useWorkspace } from "../services/repository";
-import { CompanyMark, StatCard } from "../components/ui";
+import { CompanyMark } from "../components/ui";
 import JobsTable from "../components/JobsTable";
 export default function NewJob() {
   const w = useWorkspace(),
-    { newJob, viewJob } = useActions(),
-    f = financials(w.jobs, w.expenses, w.overheads);
-  const chart = companies.map((c) => ({
-    ...c,
-    value: sum(
-      w.jobs.filter((j) => j.companyId === c.id),
-      (j) => j.price,
-    ),
-  }));
+    { newJob, viewJob } = useActions();
   function exportJobs() {
     exportCSV(
       "civilhub-jobs.csv",
@@ -122,7 +99,7 @@ export default function NewJob() {
           })}
         </div>
       </section>
-      <div className="main-split">
+      <div>
         <section className="panel recent-panel">
           <div className="panel-heading">
             <div>
@@ -137,73 +114,6 @@ export default function NewJob() {
           </div>
           <JobsTable jobs={w.jobs} onView={viewJob} pageSize={5} />
         </section>
-        <aside className="insight-rail">
-          <section className="panel portfolio-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>Company overview</h2>
-                <p>Share of registered job value</p>
-              </div>
-              <span className="tiny-pill">All time</span>
-            </div>
-            <div className="donut-wrap">
-              <ResponsiveContainer width="100%" height={177}>
-                <PieChart>
-                  <Pie
-                    isAnimationActive={false}
-                    data={chart}
-                    dataKey="value"
-                    nameKey="short"
-                    innerRadius={60}
-                    outerRadius={77}
-                    paddingAngle={4}
-                    cornerRadius={5}
-                    stroke="none"
-                    startAngle={90}
-                    endAngle={-270}
-                  >
-                    {chart.map((c) => (
-                      <Cell key={c.id} fill={c.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(v) => money(Number(v))}
-                    contentStyle={{
-                      borderRadius: 12,
-                      border: "1px solid #eceaf0",
-                      fontSize: 12,
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="donut-center">
-                <span>Total job value</span>
-                <strong>
-                  {(f.revenue / 100_000_000).toFixed(2)}
-                  <small>m</small>
-                </strong>
-                <span className="donut-currency">MYR</span>
-              </div>
-            </div>
-            <div className="company-legend">
-              {chart.map((c) => (
-                <div key={c.id}>
-                  <span
-                    className="legend-dot"
-                    style={{ background: c.color }}
-                  />
-                  <span>{c.short}</span>
-                  <strong>
-                    {f.revenue ? Math.round((c.value / f.revenue) * 100) : 0}%
-                  </strong>
-                </div>
-              ))}
-            </div>
-            <Link to="/reports" className="insight-footer">
-              Explore financial reports <ArrowRight size={15} />
-            </Link>
-          </section>
-        </aside>
       </div>
       <div className="workspace-footnote">
         <span>
