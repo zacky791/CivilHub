@@ -17,7 +17,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleHelp,
-  Download,
   Eye,
   EyeOff,
   FilePlus2,
@@ -38,7 +37,7 @@ import {
 import { ActionsContext } from "./lib/actions";
 import { companies, companyById } from "./lib/constants";
 import type { CompanyId, Job } from "./lib/types";
-import { dateLabel, download } from "./lib/finance";
+import { dateLabel } from "./lib/finance";
 import {
   repository,
   useWorkspace,
@@ -607,41 +606,13 @@ export default function App() {
                 </strong>
               </div>
             </div>
-            <div className="demo-settings-note">
-              <Sparkles size={18} />
-              <p>
-                {isDemoMode
-                  ? "This is your interactive demo. Records and attachments stay on this device."
-                  : `Signed in as ${auth.account?.email}. Records are saved to your private workspace and available when you sign in on another device.`}
-              </p>
-            </div>
-            <div className="settings-actions">
-              <button
-                className="button"
-                onClick={() => {
-                  download(
-                    new Blob([JSON.stringify(w, null, 2)], {
-                      type: "application/json",
-                    }),
-                    isDemoMode
-                      ? "civilhub-demo-data.json"
-                      : "civilhub-workspace-data.json",
-                  );
-                  toast(
-                    "Workspace records exported. Attachment files are downloaded separately.",
-                  );
-                }}
-              >
-                <Download size={15} />
-                Export workspace records
-              </button>
-              <small>
-                Exports records and attachment metadata. Download files
-                individually from each record.
-              </small>
-              {isDemoMode && (
-                <>
-                  <div className="panel-divider" />
+            {isDemoMode && (
+              <>
+                <div className="demo-settings-note">
+                  <Sparkles size={18} />
+                  <p>This is your interactive demo. Records and attachments stay on this device.</p>
+                </div>
+                <div className="settings-actions">
                   <button onClick={() => setReset("demo")} className="button">
                     Restore sample workspace
                   </button>
@@ -651,9 +622,9 @@ export default function App() {
                   >
                     Start with an empty workspace
                   </button>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
           <div className="modal-footer">
             <button className="button" onClick={logout}>
@@ -681,7 +652,7 @@ export default function App() {
         >
           <div className="modal-body">
             <p>
-              Your current jobs, costs and attachments will be removed. Export
+              Your current jobs, costs and attachments will be removed. Save
               anything you want to keep before continuing.
             </p>
           </div>
