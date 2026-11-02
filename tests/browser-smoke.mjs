@@ -10,7 +10,7 @@ const page = await context.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await mkdir("outputs", { recursive: true });
-const url = "http://127.0.0.1:5173/";
+const url = process.env.CIVILHUB_BASE_URL ?? "http://127.0.0.1:5173/";
 const dialog = () => page.getByRole("dialog").last();
 const check = async (text) => {
   await page.getByText(text, { exact: false }).first().waitFor();

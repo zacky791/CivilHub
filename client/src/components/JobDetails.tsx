@@ -91,7 +91,7 @@ export default function JobDetails({
         <Attachments ownerId={id} />
         <div className="audit-note">
           Created {dateLabel(job.createdAt)} · Updated{" "}
-          {dateLabel(job.updatedAt)} · Demo Admin
+          {dateLabel(job.updatedAt)}
         </div>
       </div>
       <div className="modal-footer">
@@ -123,9 +123,9 @@ export default function JobDetails({
           title={`Delete ${job.number}?`}
           text="This will also delete its expense records and attachment references. This action cannot be undone."
           onClose={() => setConfirm(false)}
-          onConfirm={() => {
+          onConfirm={async () => {
             try {
-              repository.deleteJob(id);
+              await repository.deleteJob(id);
               toast("Job and associated expenses deleted");
               onClose();
             } catch (e) {

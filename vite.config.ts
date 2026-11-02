@@ -11,6 +11,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes("@supabase")) return "supabase";
           if (id.includes("recharts")) return "charts";
           if (id.includes("leaflet")) return "maps";
         },

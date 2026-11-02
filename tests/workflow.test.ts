@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorkspace, repository } from "../client/src/services/repository";
+import {
+  getWorkspace,
+  repository,
+} from "../client/src/services/demo-repository";
 import { financials, jobExpense } from "../client/src/lib/finance";
 import type { JobInput, OverheadInput } from "../client/src/lib/types";
 const storage = new Map<string, string>();

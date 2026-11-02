@@ -1,283 +1,70 @@
 import { useSyncExternalStore } from "react";
-import { z } from "zod";
 import type {
-  Activity,
   Attachment,
-  Expense,
   ExpenseInput,
-  Job,
   JobInput,
-  Overhead,
   OverheadInput,
-  Workspace,
 } from "../lib/types";
-import { seedWorkspace } from "./seed";
-const KEY = "civilhub:workspace:v1";
-const listeners = new Set<() => void>();
-let snapshot: Workspace | undefined;
-const amount = z.number().int().min(1).max(999_999_999_99);
-const validDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine(
-    (s) =>
-      !Number.isNaN(Date.parse(s)) &&
-      new Date(s).toISOString().slice(0, 10) === s,
-    "Enter a valid date.",
-  );
-const company = z.enum(["akar", "mastura", "trust", "amiza", "kugiran"]);
-const jobSchema = z.object({
-  companyId: company,
-  workType: z.string().trim().min(1).max(160),
-  client: z.string().trim().min(1).max(160),
-  price: amount,
-  location: z.string().trim().min(2).max(500),
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-  date: validDate,
-  description: z.string().max(5000),
-  status: z.enum(["Active", "Completed", "On hold"]),
-});
-const expenseSchema = z.object({
-  jobId: z.string().min(1),
-  description: z.string().trim().min(1).max(500),
-  category: z.string().min(1),
-  amount,
-  date: validDate,
-});
-const overheadSchema = z.object({
-  companyId: z.enum(["akar", "mastura", "trust", "amiza", "kugiran", "shared"]),
-  description: z.string().trim().min(1).max(500),
-  category: z.string().min(1),
-  amount,
-  date: validDate,
-  recurring: z.boolean(),
-  frequency: z.enum(["monthly", "yearly"]),
-});
-export function getWorkspace(): Workspace {
-  if (snapshot) return snapshot;
-  const saved = localStorage.getItem(KEY);
-  if (saved) {
-    const parsed = JSON.parse(saved) as Workspace;
-    if (
-      parsed.version !== 1 ||
-      !Array.isArray(parsed.jobs) ||
-      !Array.isArray(parsed.expenses)
-    )
-      throw new Error(
-        "The saved workspace could not be read. Export your browser storage before resetting it.",
-      );
-    snapshot = parsed;
-  } else {
-    const seed = seedWorkspace();
-    localStorage.setItem(KEY, JSON.stringify(seed));
-    snapshot = seed;
-  }
-  return snapshot;
-}
-function commit(next: Workspace) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    throw new Error(
-      "Browser storage is full or unavailable. Your changes were not saved.",
-    );
-  }
-  snapshot = next;
-  listeners.forEach((l) => l());
-}
-function update(action: (draft: Workspace) => void) {
-  const next = structuredClone(getWorkspace());
-  action(next);
-  commit(next);
-}
-const uid = () => crypto.randomUUID();
-const timestamp = () => new Date().toISOString();
-function activity(
-  w: Workspace,
-  kind: Activity["kind"],
-  title: string,
-  detail: string,
-) {
-  w.activities.unshift({
-    id: uid(),
-    kind,
-    title,
-    detail,
-    createdAt: timestamp(),
-  });
-  w.activities = w.activities.slice(0, 30);
-}
-export function subscribe(callback: () => void) {
-  listeners.add(callback);
-  return () => {
-    listeners.delete(callback);
-  };
-}
+import {
+  repository as demo,
+  getWorkspace as getDemoWorkspace,
+  subscribe as subscribeDemo,
+} from "./demo-repository";
+import {
+  cloudRepository as cloud,
+  getCloudWorkspace,
+  getSyncNotice,
+  refreshCloudWorkspace,
+  subscribeCloud,
+} from "./cloud-repository";
+export const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
+export const isSupabaseConfigured = Boolean(
+  import.meta.env.VITE_SUPABASE_URL &&
+    (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+      import.meta.env.VITE_SUPABASE_ANON_KEY),
+);
+export const getWorkspace = isDemoMode ? getDemoWorkspace : getCloudWorkspace;
+export const subscribe = isDemoMode ? subscribeDemo : subscribeCloud;
 export function useWorkspace() {
   return useSyncExternalStore(subscribe, getWorkspace, getWorkspace);
 }
-if (typeof window !== "undefined")
-  window.addEventListener("storage", (e) => {
-    if (e.key === KEY) {
-      snapshot = undefined;
-      listeners.forEach((l) => l());
-    }
-  });
+export function useSyncNotice() {
+  return useSyncExternalStore(subscribeCloud, getSyncNotice, getSyncNotice);
+}
+export const refreshWorkspace = () =>
+  isDemoMode ? Promise.resolve() : refreshCloudWorkspace();
 export const repository = {
-  saveJob(input: JobInput, id?: string): Job {
-    const parsed = jobSchema.parse(input);
-    let saved!: Job;
-    update((w) => {
-      const existing = id ? w.jobs.find((j) => j.id === id) : undefined;
-      if (id && !existing) throw new Error("This job no longer exists.");
-      saved = {
-        ...parsed,
-        id: existing?.id ?? uid(),
-        number:
-          existing?.number ?? `JOB-${String(w.nextJob++).padStart(4, "0")}`,
-        createdAt: existing?.createdAt ?? timestamp(),
-        updatedAt: timestamp(),
-      };
-      w.jobs = existing
-        ? w.jobs.map((j) => (j.id === id ? saved : j))
-        : [saved, ...w.jobs];
-      if (
-        !w.clients.some((c) => c.toLowerCase() === parsed.client.toLowerCase())
-      )
-        w.clients.push(parsed.client);
-      activity(
-        w,
-        "job",
-        existing ? "Job updated" : "New job registered",
-        `${saved.number} · ${saved.workType}`,
-      );
-    });
-    return saved;
+  async saveJob(input: JobInput, id?: string, requestId?: string) {
+    return isDemoMode
+      ? demo.saveJob(input, id)
+      : cloud.saveJob(input, id, requestId);
   },
-  deleteJob(id: string) {
-    update((w) => {
-      const job = w.jobs.find((j) => j.id === id);
-      if (!job) throw new Error("Job not found.");
-      const ids = new Set([
-        id,
-        ...w.expenses.filter((e) => e.jobId === id).map((e) => e.id),
-      ]);
-      w.jobs = w.jobs.filter((j) => j.id !== id);
-      w.expenses = w.expenses.filter((e) => e.jobId !== id);
-      w.attachments = w.attachments.filter((a) => !ids.has(a.ownerId));
-      activity(w, "job", "Job deleted", job.number);
-    });
+  async saveExpense(input: ExpenseInput, id?: string, requestId?: string) {
+    return isDemoMode
+      ? demo.saveExpense(input, id)
+      : cloud.saveExpense(input, id, requestId);
   },
-  saveExpense(input: ExpenseInput, id?: string): Expense {
-    const parsed = expenseSchema.parse(input);
-    let saved!: Expense;
-    update((w) => {
-      if (!w.jobs.some((j) => j.id === parsed.jobId))
-        throw new Error("Select an existing job.");
-      const existing = id ? w.expenses.find((e) => e.id === id) : undefined;
-      if (id && !existing) throw new Error("Expense not found.");
-      saved = {
-        ...parsed,
-        id: existing?.id ?? uid(),
-        createdAt: existing?.createdAt ?? timestamp(),
-        updatedAt: timestamp(),
-      };
-      w.expenses = existing
-        ? w.expenses.map((e) => (e.id === id ? saved : e))
-        : [saved, ...w.expenses];
-      activity(
-        w,
-        "expense",
-        existing ? "Expense updated" : "Expense recorded",
-        parsed.description,
-      );
-    });
-    return saved;
+  async saveOverhead(input: OverheadInput, id?: string, requestId?: string) {
+    return isDemoMode
+      ? demo.saveOverhead(input, id)
+      : cloud.saveOverhead(input, id, requestId);
   },
-  deleteExpense(id: string) {
-    update((w) => {
-      w.expenses = w.expenses.filter((e) => e.id !== id);
-      w.attachments = w.attachments.filter((a) => a.ownerId !== id);
-    });
+  async deleteJob(id: string) {
+    return isDemoMode ? demo.deleteJob(id) : cloud.deleteJob(id);
   },
-  saveOverhead(input: OverheadInput, id?: string): Overhead {
-    const parsed = overheadSchema.parse(input);
-    let saved!: Overhead;
-    update((w) => {
-      if (
-        parsed.recurring &&
-        w.overheads.some(
-          (o) =>
-            o.id !== id &&
-            o.recurring &&
-            o.companyId === parsed.companyId &&
-            o.category === parsed.category &&
-            o.description.trim().toLowerCase() ===
-              parsed.description.trim().toLowerCase() &&
-            o.date.slice(0, parsed.frequency === "yearly" ? 4 : 7) ===
-              parsed.date.slice(0, parsed.frequency === "yearly" ? 4 : 7),
-        )
-      )
-        throw new Error(
-          "This recurring cost has already been recorded for that period.",
-        );
-      const existing = id ? w.overheads.find((o) => o.id === id) : undefined;
-      if (id && !existing) throw new Error("Overhead not found.");
-      saved = {
-        ...parsed,
-        id: existing?.id ?? uid(),
-        createdAt: existing?.createdAt ?? timestamp(),
-        updatedAt: timestamp(),
-      };
-      w.overheads = existing
-        ? w.overheads.map((o) => (o.id === id ? saved : o))
-        : [saved, ...w.overheads];
-      activity(
-        w,
-        "overhead",
-        existing ? "Overhead updated" : "Overhead added",
-        parsed.description,
-      );
-    });
-    return saved;
+  async deleteExpense(id: string) {
+    return isDemoMode ? demo.deleteExpense(id) : cloud.deleteExpense(id);
   },
-  deleteOverhead(id: string) {
-    update((w) => {
-      w.overheads = w.overheads.filter((o) => o.id !== id);
-      w.attachments = w.attachments.filter((a) => a.ownerId !== id);
-    });
+  async deleteOverhead(id: string) {
+    return isDemoMode ? demo.deleteOverhead(id) : cloud.deleteOverhead(id);
   },
-  addAttachment(a: Attachment) {
-    update((w) => {
-      if (
-        ![...w.jobs, ...w.expenses, ...w.overheads].some(
-          (r) => r.id === a.ownerId,
-        )
-      )
-        throw new Error("Attachment record no longer exists.");
-      w.attachments.push(a);
-    });
+  async addAttachment(a: Attachment) {
+    return isDemoMode ? demo.addAttachment(a) : cloud.addAttachment(a);
   },
-  deleteAttachment(id: string) {
-    update((w) => {
-      w.attachments = w.attachments.filter((a) => a.id !== id);
-    });
+  async deleteAttachment(id: string) {
+    return isDemoMode ? demo.deleteAttachment(id) : cloud.deleteAttachment(id);
   },
-  reset(empty = false) {
-    const next = seedWorkspace();
-    if (empty) {
-      next.jobs = [];
-      next.expenses = [];
-      next.overheads = [];
-      next.attachments = [];
-      next.activities = [];
-      next.nextJob = 1;
-      next.clients = ["Sunway"];
-    }
-    commit(next);
-  },
-  invalidate() {
-    snapshot = undefined;
+  async reset(empty = false) {
+    return isDemoMode ? demo.reset(empty) : cloud.reset();
   },
 };

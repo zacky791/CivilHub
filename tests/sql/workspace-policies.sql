@@ -3,6 +3,7 @@
 begin;
 select gen_random_uuid() as owner_a, gen_random_uuid() as owner_b, gen_random_uuid() as staff \gset
 insert into auth.users(id, email) values (:'owner_a', 'owner-a@example.invalid'), (:'owner_b', 'owner-b@example.invalid'), (:'staff', 'staff@example.invalid');
+do $$ begin if to_regclass('civilhub_private.admin_setup') is not null then insert into civilhub_private.admin_setup(email) values ('owner-a@example.invalid'), ('owner-b@example.invalid') on conflict do nothing; end if; end $$;
 select set_config('request.jwt.claims', jsonb_build_object('sub', :'owner_a', 'email', 'owner-a@example.invalid')::text, true);
 set local role authenticated;
 select public.create_construction_workspace('Workspace A') as workspace_a \gset

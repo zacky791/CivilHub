@@ -412,9 +412,9 @@ export default function Expenses() {
           title="Delete this expense?"
           text={`Removing “${deleting.description}” will restore ${money(deleting.amount, true)} to the job balance.`}
           onClose={() => setDeleting(null)}
-          onConfirm={() => {
+          onConfirm={async () => {
             try {
-              repository.deleteExpense(deleting.id);
+              await repository.deleteExpense(deleting.id);
               setDeleting(null);
               toast("Expense deleted. Job balance updated.");
             } catch (e) {

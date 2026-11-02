@@ -4,18 +4,21 @@ export const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "100kb" }));
 app.get("/api/health", (_req, res) =>
-  res.json({ status: "ok", mode: "demo", databaseConnected: false }),
+  res.json({
+    status: "ok",
+    service: "optional-express-scaffold",
+    dataProvider: "supabase",
+  }),
 );
-// Deliberately fail closed until Supabase JWT verification and a real service are connected.
-// The demo client uses client/src/services/repository.ts and never calls these routes.
+// Live operations use Supabase Auth/Data/Storage APIs with RLS.
+// This optional Express scaffold is not used for those operations.
 app.use("/api", (_req, res) =>
-  res
-    .status(501)
-    .json({
-      error: {
-        code: "INTEGRATION_PENDING",
-        message: "The backend is not connected. Use the browser-local demo.",
-      },
-    }),
+  res.status(501).json({
+    error: {
+      code: "INTEGRATION_PENDING",
+      message:
+        "This Express endpoint is not implemented. CivilHub uses authenticated Supabase APIs for live operations.",
+    },
+  }),
 );
 export const handler = serverless(app);

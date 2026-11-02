@@ -455,7 +455,7 @@ export function Attachments({ ownerId }: { ownerId: string }) {
       {confirm && (
         <Confirm
           title="Delete attachment?"
-          text="This file will be removed from this demo workspace."
+          text="This file will be removed from your workspace."
           onClose={() => setConfirm(null)}
           onConfirm={async () => {
             try {
@@ -495,8 +495,18 @@ export function Confirm({
   title: string;
   text: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }) {
+  const [busy, setBusy] = useState(false);
+  async function confirm() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onConfirm();
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <Modal title={title} onClose={onClose}>
       <div className="modal-body">
@@ -509,8 +519,12 @@ export function Confirm({
         <button className="button" onClick={onClose}>
           Cancel
         </button>
-        <button className="button button-danger" onClick={onConfirm}>
-          Delete
+        <button
+          className="button button-danger"
+          onClick={confirm}
+          disabled={busy}
+        >
+          {busy ? "Deleting…" : "Delete"}
         </button>
       </div>
     </Modal>

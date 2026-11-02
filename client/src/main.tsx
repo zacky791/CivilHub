@@ -2,6 +2,7 @@ import React, { type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import { AuthProvider, WorkspaceGate } from "./services/auth";
 import { ToastProvider } from "./components/ui";
 import "./styles.css";
 class ErrorBoundary extends React.Component<
@@ -41,7 +42,11 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <BrowserRouter>
         <ToastProvider>
-          <App />
+          <AuthProvider>
+            <WorkspaceGate>
+              <App />
+            </WorkspaceGate>
+          </AuthProvider>
         </ToastProvider>
       </BrowserRouter>
     </ErrorBoundary>

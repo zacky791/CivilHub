@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type FormEvent } from "react";
+import { lazy, Suspense, useState, useRef, type FormEvent } from "react";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -78,14 +78,15 @@ export default function JobForm({
   const [mapOpen, setMapOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  function submit(e: FormEvent<HTMLFormElement>) {
+  const requestId = useRef(crypto.randomUUID());
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
     setError("");
     try {
       const f = new FormData(e.currentTarget);
-      const saved = repository.saveJob(
+      const saved = await repository.saveJob(
         {
           companyId,
           workType:
@@ -100,6 +101,7 @@ export default function JobForm({
           status: String(f.get("status") ?? "Active") as JobStatus,
         },
         job?.id,
+        requestId.current,
       );
       toast(
         job
@@ -269,7 +271,7 @@ export default function JobForm({
         <div className="modal-footer">
           <span className="footer-note">
             {job
-              ? "Updates are saved to this demo workspace."
+              ? "Changes are saved to your workspace."
               : "A unique Job ID will be generated automatically."}
           </span>
           <button className="button" type="button" onClick={onClose}>

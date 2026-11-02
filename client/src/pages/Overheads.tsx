@@ -384,9 +384,9 @@ export default function Overheads() {
           title="Delete overhead cost?"
           text={`“${deleting.description}” and its attachment references will be removed.`}
           onClose={() => setDeleting(null)}
-          onConfirm={() => {
+          onConfirm={async () => {
             try {
-              repository.deleteOverhead(deleting.id);
+              await repository.deleteOverhead(deleting.id);
               setDeleting(null);
               toast("Overhead cost deleted");
             } catch (e) {

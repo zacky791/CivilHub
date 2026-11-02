@@ -1,8 +1,8 @@
 # CivilHub
 
-An interactive construction job and financial management **demo** for five Malaysian companies. React 19, Vite, React Router, Recharts, Lucide and Leaflet. The UI follows the supplied reference with a light workspace, rounded cards and purple accents.
+A construction job and financial workspace for five Malaysian companies. React 19, Vite, React Router, Supabase Auth/PostgreSQL/Storage, Recharts, Lucide and Leaflet.
 
-## Run
+## Run locally
 
 Requires Node 22.13+.
 
@@ -11,71 +11,107 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. The sample workspace opens immediately. Log out to review the demo login: `demo@civilhub.my` / `civilhub123`.
-
-### Supabase connection settings
-
-Create `.env.local` in this project root, next to `package.json`:
+Create `.env.local` beside `package.json`:
 
 ```dotenv
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_DEMO_MODE=false
 ```
 
-Vite loads these settings from the project root even though the frontend lives in `client/`. Restart `npm run dev` after changing the environment file. The older `VITE_SUPABASE_ANON_KEY` name is accepted as a fallback. `.env.local` is ignored by Git; on Netlify, configure the same names in project environment settings and rebuild.
+Vite loads environment settings from the project root even though the frontend is in `client/`. Restart after environment changes. The legacy `VITE_SUPABASE_ANON_KEY` name is accepted as a fallback. `.env.local` is ignored by Git. Never put a service-role/secret key into VITE\_ variables.
 
-These settings configure the Supabase client only. They do not apply database migrations or switch demo records to cloud storage. The CivilHub schema and database access policies have now been applied; real frontend authentication and an authenticated repository still need to be connected. The applied schema is in `supabase/migrations/20261102183943_civilhub_foundation.sql`.
+The normal default address is http://127.0.0.1:5173. If that port is occupied, use the Local URL printed by Vite.
+
+## Real login and administrator setup
+
+The default application mode uses Supabase Auth and requires a real session. It no longer accepts the demo credentials or displays demo records in a live workspace.
+
+First-administrator setup is reserved in `civilhub_private.admin_setup` for an explicitly approved email. This reservation is private database configuration and is not bundled into the frontend or stored in Git. Onboarding requires the corresponding **verified Supabase Auth user**; changing JWT metadata or typing a different email in a form cannot claim the reservation.
+
+The administrator chooses a password privately using either:
+
+1. The app's **First-time administrator setup** form, followed by email confirmation; or
+2. Supabase Dashboard → Authentication → Users → Add user, where the project owner creates the approved account with a private password and confirms that user's email.
+
+Then sign in to CivilHub and choose **Create workspace**. The server atomically creates the profile, workspace, admin membership, five companies and Sunway client. The operation is idempotent for the same administrator. No demo financial records are imported.
+
+Email/password login, show/hide password, session restoration, local sign-out, reset email and password-recovery screens are implemented. Passwords are sent only to Supabase Auth over HTTPS; they are not stored in application tables or source code.
+
+### Email confirmation and recovery redirects
+
+In Supabase Dashboard → Authentication → URL Configuration, add the exact callback URLs used by the app:
+
+```text
+http://127.0.0.1:5173/auth/callback
+http://localhost:5173/auth/callback
+http://127.0.0.1:5175/auth/callback
+```
+
+Set the Site URL to your main application address. For a hosted deployment, also add its exact HTTPS `/auth/callback` URL and set the production Site URL. These settings are required for confirmation/reset links to return to the correct app. The developer MCP OAuth callback is separate from application authentication.
+
+Supabase's built-in email delivery has provider restrictions/rate limits. Configure a production SMTP provider before relying on registration/reset emails for users outside your project's permitted recipients. Creating the first user directly in the Dashboard avoids depending on signup email delivery; password reset still requires correctly configured email delivery and redirect URLs.
+
+## Live data
+
+- `services/auth.tsx` guards all workspace screens, restores sessions and clears cached records on sign-out/account changes.
+- `services/cloud-repository.ts` reads/writes records through authenticated Supabase queries. RLS is authoritative; staff cannot write even if they bypass UI controls.
+- All pages derive their financial totals from the same server-confirmed workspace snapshot. Amounts are represented as integer sen in the UI and exact numeric values in PostgreSQL.
+- Job IDs/numbers and client creation are handled in a transactional server function. A workspace row lock prevents concurrent job-number collisions, and repeated create requests with the same UUID do not duplicate a job.
+- Expenses/overheads save to PostgreSQL. Original job values remain unchanged by expenses, and negative balances are supported.
+- Documents use the private `job-documents` bucket, authenticated download, workspace-scoped paths and metadata. PDF/JPG/PNG files are limited to 5 MB, with client-side file-signature checks and Storage type/size limits.
+- Delete operations remove database records and document objects. If object cleanup fails after a committed database deletion, the UI shows a warning; an administrator must remove the remaining orphaned stored files. Background retry processing is not implemented.
+- Records are loaded on sign-in/reload and refreshed when the window regains focus. This is not a realtime subscription. Pagination is used while loading large datasets.
+- Browser-local sample data is never automatically migrated into a live account.
+
+## Database migrations
+
+Both migrations are applied to the configured Supabase project:
+
+- `supabase/migrations/20261102183943_civilhub_foundation.sql`: nine public application tables, exact money, composite foreign keys, tenant isolation, RLS, restricted authenticated grants and private document storage.
+- `supabase/migrations/20261102185621_live_auth_and_jobs.sql`: verified administrator reservation, stable company codes, server-side job counters and transactional create/edit RPC.
+
+Supabase Auth owns password hashing and sessions. Public user profiles do not store passwords. Anonymous callers cannot read business tables. Company/workspace identity and audit columns cannot be edited directly by browser clients. Membership administration/inviting additional staff remains a future server-side feature; the current UI is for the approved administrator and existing workspace memberships.
+
+Applied migrations are immutable. Add a new migration for subsequent changes; do not rerun or modify these files on the connected project.
+
+## Optional isolated demo
+
+For sample records without a live database, explicitly set `VITE_DEMO_MODE=true` and restart. This uses the separate `demo-repository.ts` and `demo-files.ts` browser-only implementation. Demo login uses `demo@civilhub.my` / `civilhub123`; it is not a Supabase account.
+
+Demo records use localStorage and files use IndexedDB. They do not sync between devices or domains. Restore-sample/start-empty actions exist only in demo mode and cannot reset live records.
+
+## Verification
 
 ```sh
-npm test          # 21 calculation and persisted-workflow tests
-npm run build    # strict TypeScript check and production Vite build
-npm run preview  # serve the production build
-node tests/browser-smoke.mjs # dev server on 5173 + installed Chrome required
+npm test
+npm run build
 ```
 
-## Demo capabilities
+`tests/sql/bootstrap-local.sql` is **local-test-only** scaffolding for an isolated PostgreSQL cluster. Never apply it to a hosted Supabase database. The SQL tests exercise workspace isolation, staff/admin permissions, document policies, verified admin approval, exact money, recurrence uniqueness, transactional client/job creation, idempotency and rollback. Test records are rolled back.
 
-- Five companies, 15 editable sample jobs, sample direct costs and overheads.
-- Company selection, new/edit/delete jobs, unique IDs, creatable clients, custom work types and status changes.
-- Leaflet/OpenStreetMap pin selection, draggable markers, a curated Malaysian location list, manual addresses and Google Maps links. Map tiles need an internet connection. Suggestions are local, not global Places Autocomplete.
-- Job dashboard with company groups, search, sorting, date/client/work filters and pagination.
-- Expenses with add/edit/delete, receipt uploads, exact integer-sen calculations, original-value preservation and negative-balance warnings.
-- Overheads with shared/company assignment, filters, attachment management, monthly/yearly totals and duplicate recurring-period checks. Recurrence is a recorded configuration; entries are manually added each period.
-- Interactive filtered reports, company distribution, value/cost comparison, monthly trend, profitability, CSV download and print styles.
-- PDF/JPG/PNG attachments up to 5 MB, basic signature validation, previews, downloads and confirmed deletion.
-- Responsive navigation, activity feed, global search, toast feedback, empty states, restore samples and start-empty actions.
+Browser authentication/cloud integration checks use a local Vite server on port 5175 and installed Chrome:
 
-## Data and demo limitations
+```sh
+npm run dev -- --port 5175 --strictPort
+# In another terminal:
+node tests/browser-auth-cloud.mjs
+```
 
-Records persist in **localStorage** under `civilhub:workspace:v1`; file blobs use **IndexedDB**. All views derive totals from the same saved records. Clearing browser data removes this demo's data. Files and records do not sync across devices. Exported JSON contains record data and file metadata; download file contents separately.
+This test mocks Supabase services: it sends no emails and creates no real Auth users. It covers protected routes, sign-up confirmation, login failures/success, onboarding, persisted CRUD, private files, reports, logout isolation, recovery and mobile layout. A real-user email confirmation and password are intentionally completed privately by the account owner.
 
-Sample data is isolated in `client/src/services/seed.ts`. No financial totals are hardcoded in components. Money is represented as integer sen with validated decimal parsing. Display uses MYR and DD/MM/YYYY with Asia/Kuala_Lumpur dates.
+The separate demo browser workflow requires a demo-mode server:
 
-Demo login is simulated access to a local workspace, **not production authentication**. It initially opens as a demo administrator. Do not store real business records, secrets or personal documents here. Browser-local storage is intended for this demo only; multi-user concurrency, real account roles, server authorization and cross-device storage are deferred as requested.
+```sh
+VITE_DEMO_MODE=true npm run dev -- --port 5176 --strictPort
+# In another terminal:
+CIVILHUB_BASE_URL=http://127.0.0.1:5176/ node tests/browser-smoke.mjs
+```
 
-Report dates select registered jobs and their cost entries by their own dates. Work-type filters affect jobs and direct expenses, while overhead remains company-wide. Company reports exclude unallocated shared overhead; consolidated reports include shared overhead once. Job value is contracted value, not cash collected, and estimated profit is not cash flow.
+## Netlify and backend hosting
 
-## Integration structure
+`netlify.toml` builds `dist/` and includes SPA rewrites. Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_DEMO_MODE=false` in Netlify's project environment and rebuild. Add the deployed callback URL in Supabase Auth settings.
 
-- `client/src/services/repository.ts`: validated demo CRUD boundary used by all views. Replace this with an asynchronous authenticated repository and loading/error states when connecting the backend.
-- `client/src/services/files.ts`: demo document storage boundary; replace with private Supabase Storage and signed URLs.
-- `client/src/services/supabase.ts`: optional Supabase client factory. Environment variables are documented in `.env.example`. It is not activated by the demo.
-- `server/`: Express 5 + serverless-http scaffold. `/api/health` reports that the database is disconnected. Other API routes return 501 until real services and JWT verification are implemented; they never silently accept production records.
-- `supabase/migrations/20261102183943_civilhub_foundation.sql`: PostgreSQL foundation applied to project `eczpcryjwjctaljfpaod` as migration `20261102183943`. Includes nine RLS-protected application tables, exact numeric money, tenant-safe foreign keys, admin writes/staff reads, a private `job-documents` bucket and an authenticated onboarding RPC. Supabase Auth owns password hashing and sessions. The migration contains no demo financial records or account credentials.
-- `netlify.toml`: Vite client + Express serverless function configuration for the later integration. No old Render backend or credentials are included.
+The live frontend uses Supabase's Auth/Data/Storage APIs and PostgreSQL functions; a separate Express server is not required for these implemented operations. `server/` is an optional Express 5/serverless-http scaffold. Its unimplemented API endpoints fail closed with 501 and are not used by the live frontend. No secret/service-role key is needed in the browser or for the implemented user-scoped operations.
 
-Before production integration: connect Supabase Auth and JWT verification; implement the authenticated repository; atomically allocate job numbers and clients on the server; add audit identities, paginated APIs, transaction boundaries and storage cleanup; test RLS as two independent users/workspaces; complete production upload validation and security/backup checks. Do not put a Supabase service-role key in VITE\_ variables.
-
-## Deployment
-
-This demo can be hosted as a static SPA. `npm run build` emits `dist/`. Netlify rewrites are included. `.openai/hosting.json` declares the private Sites demo. The database schema has been applied to the configured Supabase project. The Express integration scaffold has not been deployed as a production service, and the frontend still uses demo storage until authentication and the live repository are connected.
-
-## Supabase database setup status
-
-Migration `20261102183943_civilhub_foundation.sql` created `users`, `workspaces`, `workspace_members`, `companies`, `clients`, `jobs`, `job_expenses`, `overhead_costs`, and `attachments`. All nine tables have RLS and explicit authenticated grants. Anonymous callers cannot read business records. Membership changes have no direct client write permission, and audit/ownership columns cannot be edited by frontend callers.
-
-The private `job-documents` bucket accepts PDF/JPG/PNG files up to 5 MB. Object paths begin with the workspace UUID; members can read and admins can upload/delete within their workspace. File deletion must eventually use the Storage API; deleting a job cascades its attachment metadata, while the application must clean up the corresponding stored objects.
-
-No workspace, user account or sample financial record was created by the migration. Once real Supabase sign-in is connected, call `create_construction_workspace` with a workspace name as the signed-in user. It atomically creates that user's profile, their workspace/admin membership, the five default companies and the Sunway client. The function is not available to anonymous users.
-
-The migration was validated against an isolated local PostgreSQL database before application. `tests/sql/bootstrap-local.sql` is a **local-test-only** mock of Supabase Auth/Storage, and `tests/sql/workspace-policies.sql` tests onboarding, financial integrity, cross-workspace isolation, admin/staff permissions, document permissions, recurring duplicates and cascade deletion. All test records are rolled back. Do not apply the bootstrap file to a hosted Supabase project.
+Job value is contracted value, not cash collected. Estimated profit is not cash flow. Consolidated reports count shared overhead once; company reports exclude unallocated shared overhead. Maps use Leaflet/OpenStreetMap, curated Malaysian suggestions and manual pinning rather than Google Places Autocomplete.

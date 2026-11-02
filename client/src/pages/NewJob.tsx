@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useActions } from "../lib/actions";
 import { companies, companyById } from "../lib/constants";
 import { dateLabel, exportCSV, money, sum } from "../lib/finance";
-import { useWorkspace } from "../services/repository";
+import { useWorkspace, isDemoMode } from "../services/repository";
 import { CompanyMark } from "../components/ui";
 import JobsTable from "../components/JobsTable";
 export default function NewJob() {
@@ -118,7 +118,9 @@ export default function NewJob() {
       <div className="workspace-footnote">
         <span>
           <span className="mini-dot" />
-          All changes saved in this browser
+          {isDemoMode
+            ? "All changes saved in this browser"
+            : "Records saved to your private workspace"}
         </span>
         <span>Values in MYR · Dates in DD/MM/YYYY · Kuala Lumpur time</span>
       </div>

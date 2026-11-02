@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useRef, type FormEvent } from "react";
 import { Paperclip, Plus, Save } from "lucide-react";
 import {
   companies,
@@ -35,6 +35,7 @@ export default function CostForm({
       (record as Overhead)?.recurring ?? false,
     );
   const isOverhead = kind === "overhead";
+  const requestId = useRef(crypto.randomUUID());
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
@@ -49,7 +50,7 @@ export default function CostForm({
           amount: cents(String(f.get("amount"))),
         };
       const saved = isOverhead
-        ? repository.saveOverhead(
+        ? await repository.saveOverhead(
             {
               ...base,
               companyId: String(f.get("companyId")) as CompanyId | "shared",
@@ -59,8 +60,13 @@ export default function CostForm({
                 | "yearly",
             },
             record?.id,
+            requestId.current,
           )
-        : repository.saveExpense({ ...base, jobId: jobId! }, record?.id);
+        : await repository.saveExpense(
+            { ...base, jobId: jobId! },
+            record?.id,
+            requestId.current,
+          );
       const file = f.get("receipt") as File | null;
       if (file?.size) {
         try {

@@ -39,7 +39,14 @@ import { ActionsContext } from "./lib/actions";
 import { companies, companyById } from "./lib/constants";
 import type { CompanyId, Job } from "./lib/types";
 import { dateLabel, download } from "./lib/finance";
-import { repository, useWorkspace } from "./services/repository";
+import {
+  repository,
+  useWorkspace,
+  isDemoMode,
+  refreshWorkspace,
+  useSyncNotice,
+} from "./services/repository";
+import { useAuth } from "./services/auth";
 import { clearFiles } from "./services/files";
 import {
   CompanyMark,
@@ -168,6 +175,19 @@ export default function App() {
     toast = useToast(),
     location = useLocation(),
     navigate = useNavigate();
+  const auth = useAuth(),
+    syncNotice = useSyncNotice();
+  const displayName = isDemoMode
+    ? "Demo Admin"
+    : (auth.account?.name ?? "Member");
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0])
+    .join("")
+    .toUpperCase();
+  const role = isDemoMode ? "admin" : (auth.account?.role ?? "staff");
   const [loggedIn, setLoggedIn] = useState(
     () => sessionStorage.getItem("civilhub:demo-session") !== "signed-out",
   );
@@ -205,10 +225,22 @@ export default function App() {
   const title =
     navigation.find((n) => n.path === location.pathname)?.label ?? "Workspace";
   function newJob(companyId?: CompanyId) {
+    if (role !== "admin") {
+      toast("Administrator access is required to register jobs.", true);
+      return;
+    }
     if (companyId) setForm({ companyId });
     else setChooser(true);
   }
-  function logout() {
+  async function logout() {
+    if (!isDemoMode) {
+      try {
+        await auth.signOut();
+      } catch (e) {
+        toast(errorMessage(e), true);
+        return;
+      }
+    }
     sessionStorage.setItem("civilhub:demo-session", "signed-out");
     setLoggedIn(false);
     setSettings(false);
@@ -231,8 +263,9 @@ export default function App() {
         .includes(query.toLowerCase()),
     )
     .slice(0, 8);
-  if (location.pathname === "/login") return <Login onLogin={login} />;
-  if (!loggedIn) return <Navigate to="/login" replace />;
+  if (isDemoMode && location.pathname === "/login")
+    return <Login onLogin={login} />;
+  if (isDemoMode && !loggedIn) return <Navigate to="/login" replace />;
   return (
     <ActionsContext.Provider value={{ newJob, viewJob: setDetail }}>
       <div className="app-shell">
@@ -288,10 +321,10 @@ export default function App() {
           </div>
           <div className="sidebar-bottom">
             <div className="user-profile">
-              <span className="avatar">ZA</span>
+              <span className="avatar">{initials}</span>
               <div>
-                <strong>Zakaria</strong>
-                <small>Workspace admin</small>
+                <strong>{displayName}</strong>
+                <small>Workspace {role}</small>
               </div>
               <IconButton label="Log out" onClick={logout}>
                 <LogOut size={17} />
@@ -319,7 +352,7 @@ export default function App() {
             <div className="topbar-right">
               <span className="demo-badge">
                 <span />
-                Demo workspace
+                {isDemoMode ? "Demo workspace" : "Live workspace"}
               </span>
               <span className="topbar-divider" />
               <button
@@ -380,11 +413,26 @@ export default function App() {
                 onClick={() => setSettings(true)}
                 aria-label="Account settings"
               >
-                ZA
+                {initials}
               </button>
             </div>
           </header>
           <main>
+            {syncNotice && (
+              <div className="sync-warning" role="status">
+                <span>{syncNotice}</span>
+                <button
+                  className="button"
+                  onClick={() =>
+                    refreshWorkspace().catch((e) =>
+                      toast(errorMessage(e), true),
+                    )
+                  }
+                >
+                  Refresh
+                </button>
+              </div>
+            )}
             <Suspense
               fallback={
                 <div className="page-skeleton">
@@ -517,20 +565,26 @@ export default function App() {
         >
           <div className="modal-body">
             <div className="settings-profile">
-              <span className="avatar">ZA</span>
+              <span className="avatar">{initials}</span>
               <div>
-                <strong>Zakaria</strong>
-                <p>Workspace administrator</p>
+                <strong>{displayName}</strong>
+                <p>
+                  {role === "admin"
+                    ? "Workspace administrator"
+                    : "Workspace member"}
+                </p>
               </div>
               <span className="tiny-pill">
                 <ShieldCheck size={12} />
-                Admin
+                {role === "admin" ? "Admin" : "Staff"}
               </span>
             </div>
             <div className="settings-info">
               <div>
                 <span>Workspace</span>
-                <strong>Construction group</strong>
+                <strong>
+                  {auth.account?.workspaceName ?? "Construction group"}
+                </strong>
               </div>
               <div>
                 <span>Currency</span>
@@ -546,15 +600,19 @@ export default function App() {
               </div>
               <div>
                 <span>Data storage</span>
-                <strong>This browser · Demo mode</strong>
+                <strong>
+                  {isDemoMode
+                    ? "This browser · Demo mode"
+                    : "Supabase · Private workspace"}
+                </strong>
               </div>
             </div>
             <div className="demo-settings-note">
               <Sparkles size={18} />
               <p>
-                This is your interactive demo. Your changes and attachments stay
-                on this device. Supabase, real authentication and team access
-                will be connected in the integration phase.
+                {isDemoMode
+                  ? "This is your interactive demo. Records and attachments stay on this device."
+                  : `Signed in as ${auth.account?.email}. Records are saved to your private workspace and available when you sign in on another device.`}
               </p>
             </div>
             <div className="settings-actions">
@@ -565,36 +623,42 @@ export default function App() {
                     new Blob([JSON.stringify(w, null, 2)], {
                       type: "application/json",
                     }),
-                    "civilhub-demo-data.json",
+                    isDemoMode
+                      ? "civilhub-demo-data.json"
+                      : "civilhub-workspace-data.json",
                   );
                   toast(
-                    "Demo data exported. Attachment files are downloaded separately.",
+                    "Workspace records exported. Attachment files are downloaded separately.",
                   );
                 }}
               >
                 <Download size={15} />
-                Export demo records
+                Export workspace records
               </button>
               <small>
                 Exports records and attachment metadata. Download files
                 individually from each record.
               </small>
-              <div className="panel-divider" />
-              <button onClick={() => setReset("demo")} className="button">
-                Restore sample workspace
-              </button>
-              <button
-                onClick={() => setReset("empty")}
-                className="button button-ghost text-rose"
-              >
-                Start with an empty workspace
-              </button>
+              {isDemoMode && (
+                <>
+                  <div className="panel-divider" />
+                  <button onClick={() => setReset("demo")} className="button">
+                    Restore sample workspace
+                  </button>
+                  <button
+                    onClick={() => setReset("empty")}
+                    className="button button-ghost text-rose"
+                  >
+                    Start with an empty workspace
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="modal-footer">
             <button className="button" onClick={logout}>
               <LogOut size={15} />
-              Log out of demo
+              {isDemoMode ? "Log out of demo" : "Sign out"}
             </button>
             <button
               className="button button-primary"
@@ -605,7 +669,7 @@ export default function App() {
           </div>
         </Modal>
       )}
-      {reset && (
+      {isDemoMode && reset && (
         <Modal
           title={
             reset === "demo"
@@ -632,7 +696,7 @@ export default function App() {
                 setResetting(true);
                 try {
                   await clearFiles();
-                  repository.reset(reset === "empty");
+                  await repository.reset(reset === "empty");
                   setReset(null);
                   setSettings(false);
                   setDetail(null);

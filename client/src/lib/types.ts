@@ -54,6 +54,7 @@ export interface Attachment {
   size: number;
   createdAt: string;
   uploader: string;
+  storagePath?: string;
 }
 export interface Activity {
   id: string;
