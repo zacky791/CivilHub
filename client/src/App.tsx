@@ -317,64 +317,6 @@ export default function App() {
               <span className="breadcrumb-current">{title}</span>
             </div>
             <div className="topbar-right">
-              <span className="demo-badge">
-                <span />
-                Demo workspace
-              </span>
-              <span className="topbar-divider" />
-              <button
-                className="global-search"
-                onClick={() => setSearch(true)}
-                aria-label="Search workspace"
-              >
-                <Search size={18} />
-                <kbd>⌘ K</kbd>
-              </button>
-              <div className="notification-container">
-                <IconButton
-                  label="Notifications"
-                  className={`notification-button ${!seen ? "has-notifications" : ""}`}
-                  onClick={() => {
-                    setNotifications(!notifications);
-                    setSeen(true);
-                    sessionStorage.setItem("civilhub:seen", "yes");
-                  }}
-                >
-                  <Bell size={19} />
-                </IconButton>
-                {notifications && (
-                  <div className="notification-popover">
-                    <div className="section-heading">
-                      <h3>Workspace activity</h3>
-                      <span className="count">{w.activities.length}</span>
-                    </div>
-                    {w.activities.length ? (
-                      w.activities.slice(0, 5).map((a) => (
-                        <div className="activity-row" key={a.id}>
-                          <span className={`activity-icon ${a.kind}`}>
-                            {a.kind === "job" ? (
-                              <BriefcaseBusiness size={15} />
-                            ) : a.kind === "expense" ? (
-                              <ReceiptText size={15} />
-                            ) : (
-                              <Wallet size={15} />
-                            )}
-                          </span>
-                          <div>
-                            <strong>{a.title}</strong>
-                            <p>{a.detail}</p>
-                            <small>{dateLabel(a.createdAt)}</small>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="muted">
-                        Your recent activity appears here.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
               <button
                 className="top-avatar avatar"
                 onClick={() => setSettings(true)}
