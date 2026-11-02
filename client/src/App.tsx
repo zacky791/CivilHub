@@ -262,19 +262,6 @@ export default function App() {
           <NavLink to="/" className="brand-link" aria-label="CivilHub home">
             <Logo />
           </NavLink>
-          <button
-            className="workspace-switch"
-            onClick={() => setSettings(true)}
-          >
-            <span className="workspace-icon">
-              <Building2 size={17} />
-            </span>
-            <span>
-              <strong>Construction group</strong>
-              <small>5 companies · 1 workspace</small>
-            </span>
-            <ChevronDown size={14} />
-          </button>
           <div className="nav-eyebrow">WORKSPACE</div>
           <nav>
             {navigation.map((n) => (
@@ -315,26 +302,6 @@ export default function App() {
             ))}
           </div>
           <div className="sidebar-bottom">
-            <div className="sidebar-help">
-              <div>
-                <span className="help-icon">
-                  <CircleHelp size={19} />
-                </span>
-                <span className="help-sparkle">✧</span>
-              </div>
-              <h3>A little help, on site.</h3>
-              <p>Make the most of your workspace.</p>
-              <button onClick={() => setHelp(true)}>
-                Explore the quick guide <ArrowUpRight size={14} />
-              </button>
-            </div>
-            <button
-              className="nav-item settings-link"
-              onClick={() => setSettings(true)}
-            >
-              <Settings size={18} />
-              <span>Workspace settings</span>
-            </button>
             <div className="user-profile">
               <span className="avatar">ZA</span>
               <div>
