@@ -38,3 +38,9 @@ export const overheadSchema = z.object({
   recurring: z.boolean(),
   frequency: z.enum(["monthly", "yearly"]),
 });
+
+export const paymentSchema = z.object({
+  jobId: z.string().min(1),
+  amount,
+  date: validDate,
+});

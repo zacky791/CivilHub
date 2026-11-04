@@ -5,12 +5,13 @@ import {
   ChevronLeft,
   ChevronRight,
   MapPin,
+  Plus,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Job } from "../lib/types";
+import type { Job, Payment } from "../lib/types";
 import { companyById } from "../lib/constants";
-import { dateLabel, money } from "../lib/finance";
+import { dateLabel, money, sum } from "../lib/finance";
 import { CompanyMark, Empty, IconButton, Status } from "./ui";
 export default function JobsTable({
   jobs,
@@ -18,12 +19,16 @@ export default function JobsTable({
   pageSize = 6,
   searchable = true,
   showCompany = true,
+  payments,
+  onPayment,
 }: {
   jobs: Job[];
   onView: (id: string) => void;
   pageSize?: number;
   searchable?: boolean;
   showCompany?: boolean;
+  payments?: Payment[];
+  onPayment?: (job: Job) => void;
 }) {
   const [query, setQuery] = useState(""),
     [page, setPage] = useState(1),
@@ -100,12 +105,15 @@ export default function JobsTable({
                   Job value <ArrowUpDown size={12} />
                 </button>
               </th>
+              {onPayment && <th className="amount">Money in</th>}
               <th>Status</th>
               <th aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
-            {rows.map((j) => (
+            {rows.map((j) => {
+              const received = sum((payments ?? []).filter((p) => p.jobId === j.id), (p) => p.amount);
+              return (
               <tr key={j.id} onClick={() => onView(j.id)}>
                 <td>
                   <button
@@ -134,6 +142,16 @@ export default function JobsTable({
                 <td>{j.client}</td>
                 <td className="date-cell">{dateLabel(j.date)}</td>
                 <td className="amount cell-money">{money(j.price)}</td>
+                {onPayment && (
+                  <td className="payment-cell" onClick={(e) => e.stopPropagation()}>
+                    <div className="payment-cell-top">
+                      <button className="text-button" onClick={() => onPayment(j)}>{money(received)}</button>
+                      <IconButton label={`Add payment for ${j.number}`} onClick={() => onPayment(j)}><Plus size={15} /></IconButton>
+                    </div>
+                    <progress aria-label={`Payment progress for ${j.number}`} max={j.price} value={Math.min(j.price, received)} />
+                    <span className="table-secondary">{Math.round(received / j.price * 100)}% paid · {money(Math.max(0, j.price - received))} due</span>
+                  </td>
+                )}
                 <td>
                   <Status status={j.status} />
                 </td>
@@ -146,7 +164,7 @@ export default function JobsTable({
                   </IconButton>
                 </td>
               </tr>
-            ))}
+            ); })}
           </tbody>
         </table>
       </div>

@@ -39,6 +39,61 @@ beforeEach(() => {
   repository.reset(true);
 });
 describe("persisted demo workflow", () => {
+  it("tracks instalments without changing job value or expense balances", () => {
+    const job = repository.saveJob(input);
+    const payment = { jobId: job.id, amount: 250000, date: "2026-11-04" };
+    const first = repository.savePayment(payment, "payment-request-1");
+    repository.savePayment(payment, "payment-request-1");
+    repository.savePayment({ ...payment, amount: 500000 });
+    repository.invalidate();
+    const w = getWorkspace();
+    expect(w.payments).toHaveLength(2);
+    expect(w.payments.reduce((total, p) => total + p.amount, 0)).toBe(750000);
+    expect(w.payments[1].date).toBe("2026-11-04");
+    expect(w.jobs[0].price).toBe(input.price);
+    expect(jobExpense(job.id, w.expenses)).toBe(0);
+    repository.deletePayment(first.id);
+    expect(getWorkspace().payments).toHaveLength(1);
+    repository.deleteJob(job.id);
+    expect(getWorkspace().payments).toHaveLength(0);
+  });
+  it("validates payment amount, date and job before saving", () => {
+    const job = repository.saveJob(input);
+    const valid = { jobId: job.id, amount: 10000, date: "2026-11-04" };
+    for (const amount of [0, -1, 0.5, 100000000000]) {
+      expect(() => repository.savePayment({ ...valid, amount })).toThrow();
+    }
+    expect(() => repository.savePayment({ ...valid, date: "2026-02-30" })).toThrow();
+    expect(() => repository.savePayment({ ...valid, jobId: "missing" })).toThrow();
+    expect(getWorkspace().payments).toHaveLength(0);
+  });
+  it("loads workspaces saved before payment tracking was added", () => {
+    const saved = JSON.parse(local.getItem("civilhub:workspace:v1")!);
+    delete saved.payments;
+    local.setItem("civilhub:workspace:v1", JSON.stringify(saved));
+    repository.invalidate();
+    expect(getWorkspace().payments).toEqual([]);
+  });
+  it("persists independent owner costs and updates balances when edited or removed", () => {
+    const job = repository.saveJob(input);
+    const cost = repository.saveExpense({
+      jobId: job.id, category: "Owner", description: "Owner allowance",
+      amount: 25000, date: "2026-11-03",
+    });
+    const overhead = repository.saveOverhead({
+      companyId: "shared", category: "Owner", description: "Owner travel",
+      amount: 15000, date: "2026-11-03", recurring: false, frequency: "monthly",
+    });
+    repository.invalidate();
+    expect(getWorkspace().expenses.find((e) => e.id === cost.id)?.category).toBe("Owner");
+    expect(getWorkspace().overheads.find((o) => o.id === overhead.id)?.amount).toBe(15000);
+    expect(financials(getWorkspace().jobs, getWorkspace().expenses, getWorkspace().overheads).net).toBe(input.price - 40000);
+    repository.saveExpense({ ...cost, amount: 30000 }, cost.id);
+    expect(jobExpense(job.id, getWorkspace().expenses)).toBe(30000);
+    repository.deleteExpense(cost.id);
+    repository.deleteOverhead(overhead.id);
+    expect(financials(getWorkspace().jobs, getWorkspace().expenses, getWorkspace().overheads).net).toBe(input.price);
+  });
   it("creates a job, adds an expense and reloads consistent totals", () => {
     const job = repository.saveJob(input);
     expect(job.number).toBe("JOB-0001");

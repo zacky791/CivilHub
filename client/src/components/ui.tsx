@@ -28,7 +28,13 @@ import {
 import { dateLabel, download, formatMoneyInput, money } from "../lib/finance";
 import { useWorkspace } from "../services/repository";
 import { addFiles, getFile, removeFile } from "../services/files";
-export function Logo({ small = false }: { small?: boolean }) {
+export function Logo({
+  small = false,
+  title,
+}: {
+  small?: boolean;
+  title?: string;
+}) {
   return (
     <div className={`brand ${small ? "brand-small" : ""}`}>
       <span className="brand-symbol">
@@ -41,12 +47,15 @@ export function Logo({ small = false }: { small?: boolean }) {
           />
         </svg>
       </span>
-      {!small && (
-        <span>
-          Civil<span className="brand-light">Hub</span>
-          <span className="brand-dot">.</span>
-        </span>
-      )}
+      {!small &&
+        (title ? (
+          <span className="brand-title">{title}</span>
+        ) : (
+          <span>
+            Civil<span className="brand-light">Hub</span>
+            <span className="brand-dot">.</span>
+          </span>
+        ))}
     </div>
   );
 }

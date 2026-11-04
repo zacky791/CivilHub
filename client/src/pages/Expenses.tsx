@@ -1,24 +1,32 @@
 import {
   AlertTriangle,
-  ArrowRight,
   ArrowUpRight,
   ChevronDown,
   Download,
   FileText,
   MapPin,
-  MoreHorizontal,
   Paperclip,
   Pencil,
   Plus,
   ReceiptText,
   Search,
   Trash2,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useActions } from "../lib/actions";
-import { companyById, expenseCategories } from "../lib/constants";
-import { dateLabel, exportCSV, jobExpense, money, sum } from "../lib/finance";
+import {
+  companyById,
+  expenseCategories,
+} from "../lib/constants";
+import {
+  dateLabel,
+  exportCSV,
+  jobExpense,
+  money,
+  sum,
+} from "../lib/finance";
 import type { Expense } from "../lib/types";
 import { repository, useWorkspace } from "../services/repository";
 import {
@@ -46,7 +54,8 @@ export default function Expenses() {
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [form, setForm] = useState<Expense | "new" | null>(null),
-    [deleting, setDeleting] = useState<Expense | null>(null);
+    [deleting, setDeleting] = useState<Expense | null>(null),
+    [ownersOpen, setOwnersOpen] = useState(false);
   const rows = w.expenses
       .filter(
         (e) =>
@@ -262,6 +271,13 @@ export default function Expenses() {
                   onChange={(e) => setTo(e.target.value)}
                 />
               </label>
+              <button
+                className="button button-small"
+                onClick={() => setOwnersOpen(true)}
+              >
+                <Users size={14} />
+                Owner
+              </button>
               {(category !== "all" || from || to) && (
                 <button
                   className="text-button"
@@ -421,6 +437,13 @@ export default function Expenses() {
               toast(errorMessage(e), true);
             }
           }}
+        />
+      )}
+      {ownersOpen && job && (
+        <CostForm
+          kind="expense" jobId={job.id}
+          ownerCost
+          onClose={() => setOwnersOpen(false)}
         />
       )}
     </div>

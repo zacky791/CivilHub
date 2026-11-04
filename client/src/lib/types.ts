@@ -24,6 +24,14 @@ export interface Job {
   createdAt: string;
   updatedAt: string;
 }
+export interface Payment {
+  id: string;
+  jobId: string;
+  amount: number;
+  date: string;
+  createdAt: string;
+}
+export type PaymentInput = Omit<Payment, "id" | "createdAt">;
 export interface Expense {
   id: string;
   jobId: string;
@@ -67,6 +75,7 @@ export interface Workspace {
   version: 1;
   jobs: Job[];
   expenses: Expense[];
+  payments: Payment[];
   overheads: Overhead[];
   clients: string[];
   attachments: Attachment[];

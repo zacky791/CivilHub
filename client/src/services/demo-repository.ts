@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from "react";
-import { jobSchema, expenseSchema, overheadSchema } from "./validation";
+import { jobSchema, expenseSchema, overheadSchema, paymentSchema } from "./validation";
 import type {
   Activity,
+  Payment,
+  PaymentInput,
   Attachment,
   Expense,
   ExpenseInput,
@@ -28,7 +30,7 @@ export function getWorkspace(): Workspace {
       throw new Error(
         "The saved workspace could not be read. Export your browser storage before resetting it.",
       );
-    snapshot = parsed;
+    snapshot = { ...parsed, payments: parsed.payments ?? [] };
   } else {
     const seed = seedWorkspace();
     localStorage.setItem(KEY, JSON.stringify(seed));
@@ -86,6 +88,21 @@ if (typeof window !== "undefined")
     }
   });
 export const repository = {
+  savePayment(input: PaymentInput, requestId?: string): Payment {
+    const parsed = paymentSchema.parse(input);
+    let saved!: Payment;
+    update((w) => {
+      if (!w.jobs.some((j) => j.id === parsed.jobId)) throw new Error("Select an existing job.");
+      const existing = requestId ? w.payments.find((p) => p.id === requestId) : undefined;
+      if (existing) { saved = existing; return; }
+      saved = { ...parsed, id: requestId ?? uid(), createdAt: timestamp() };
+      w.payments = [saved, ...w.payments];
+    });
+    return saved;
+  },
+  deletePayment(id: string) {
+    update((w) => { w.payments = w.payments.filter((p) => p.id !== id); });
+  },
   saveJob(input: JobInput, id?: string): Job {
     const parsed = jobSchema.parse(input);
     let saved!: Job;
@@ -125,6 +142,7 @@ export const repository = {
         ...w.expenses.filter((e) => e.jobId === id).map((e) => e.id),
       ]);
       w.jobs = w.jobs.filter((j) => j.id !== id);
+      w.payments = w.payments.filter((p) => p.jobId !== id);
       w.expenses = w.expenses.filter((e) => e.jobId !== id);
       w.attachments = w.attachments.filter((a) => !ids.has(a.ownerId));
       activity(w, "job", "Job deleted", job.number);
@@ -230,6 +248,7 @@ export const repository = {
     if (empty) {
       next.jobs = [];
       next.expenses = [];
+      next.payments = [];
       next.overheads = [];
       next.attachments = [];
       next.activities = [];

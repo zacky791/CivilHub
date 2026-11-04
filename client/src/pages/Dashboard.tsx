@@ -1,17 +1,26 @@
+import PaymentModal from "../components/PaymentModal";
+import type { Job } from "../lib/types";
 import {
+  ArrowUpRight,
   ChevronDown,
   Download,
-  Filter,
   Plus,
   Search,
   SlidersHorizontal,
+  Users,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useActions } from "../lib/actions";
 import { companies, workTypes } from "../lib/constants";
-import { exportCSV, financials, money } from "../lib/finance";
+import {
+  exportCSV,
+  financials,
+  money,
+  monthKey,
+  sum,
+} from "../lib/finance";
 import { useWorkspace } from "../services/repository";
 import { CompanyMark, Empty, SelectWrap, StatCard } from "../components/ui";
 import JobsTable from "../components/JobsTable";
@@ -29,6 +38,7 @@ export default function Dashboard() {
     [query, setQuery] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
+  const [paymentJob, setPaymentJob] = useState<Job | null>(null);
   const [closed, setClosed] = useState<string[]>([]),
     [showDates, setShowDates] = useState(false);
   const jobs = w.jobs.filter(
@@ -43,6 +53,28 @@ export default function Dashboard() {
         .includes(query.toLowerCase()),
   );
   const f = financials(jobs, w.expenses, []),
+    jobIds = new Set(jobs.map((j) => j.id)),
+    thisMonth = monthKey(),
+    thisYear = thisMonth.slice(0, 4),
+    monthDirect = sum(
+      w.expenses.filter(
+        (e) => jobIds.has(e.jobId) && e.date.startsWith(thisMonth),
+      ),
+      (e) => e.amount,
+    ),
+    yearDirect = sum(
+      w.expenses.filter(
+        (e) => jobIds.has(e.jobId) && e.date.startsWith(thisYear),
+      ),
+      (e) => e.amount,
+    ),
+    ownerTotal = sum(
+      w.expenses.filter((e) => jobIds.has(e.jobId) && e.category === "Owner" && (!from || e.date >= from) && (!to || e.date <= to)),
+      (e) => e.amount,
+    ) + sum(
+      w.overheads.filter((o) => o.category === "Owner" && (company === "all" || o.companyId === company) && (!from || o.date >= from) && (!to || o.date <= to) && work === "all" && client === "all" && !query),
+      (o) => o.amount,
+    ),
     active =
       company !== "all" ||
       work !== "all" ||
@@ -52,6 +84,7 @@ export default function Dashboard() {
       to;
   return (
     <div className="page-enter">
+      {paymentJob && <PaymentModal job={w.jobs.find((j) => j.id === paymentJob.id) ?? paymentJob} onClose={() => setPaymentJob(null)} />}
       <div className="page-heading">
         <div>
           <div className="eyebrow">THE BIG PICTURE</div>
@@ -65,7 +98,7 @@ export default function Dashboard() {
           New job
         </button>
       </div>
-      <div className="stats-grid">
+      <div className="stats-grid stats-grid-5">
         <StatCard
           label="Total jobs"
           value={String(f.jobs)}
@@ -78,14 +111,38 @@ export default function Dashboard() {
           type="value"
           note="Original contracted value"
         />
+        <div className="stat-card stat-expense-periods">
+          <div className="stat-top">
+            <span>Direct expenses</span>
+            <span className="stat-icon expense">
+              <ArrowUpRight size={17} />
+            </span>
+          </div>
+          <div className="expense-period-split">
+            <div>
+              <span>This month</span>
+              <strong>{money(monthDirect)}</strong>
+            </div>
+            <div>
+              <span>This year</span>
+              <strong>{money(yearDirect)}</strong>
+            </div>
+          </div>
+        </div>
+        <div className="stat-card stat-owner">
+          <div className="stat-top">
+            <span>Owner</span>
+            <span className="stat-icon owner">
+              <Users size={17} />
+            </span>
+          </div>
+          <div className="stat-value">{money(ownerTotal)}</div>
+          <div className="owner-share-note">
+            Recorded owner costs
+          </div>
+        </div>
         <StatCard
-          label="Direct expenses"
-          value={money(f.direct)}
-          type="expense"
-          note="Costs linked to these jobs"
-        />
-        <StatCard
-          label="Net job balance"
+          label="Balance"
           value={money(f.gross)}
           type="balance"
           note="Job value less direct expenses"
@@ -160,6 +217,8 @@ export default function Dashboard() {
                 "Client",
                 "Work type",
                 "Value RM",
+                "Money in RM",
+                "Still due RM",
                 "Date",
                 "Location",
               ],
@@ -169,6 +228,8 @@ export default function Dashboard() {
                 j.client,
                 j.workType,
                 (j.price / 100).toFixed(2),
+                (sum(w.payments.filter((p) => p.jobId === j.id), (p) => p.amount) / 100).toFixed(2),
+                (Math.max(0, j.price - sum(w.payments.filter((p) => p.jobId === j.id), (p) => p.amount)) / 100).toFixed(2),
                 j.date,
                 j.location,
               ]),
@@ -253,6 +314,8 @@ export default function Dashboard() {
                   (rows.length ? (
                     <JobsTable
                       jobs={rows}
+                      payments={w.payments}
+                      onPayment={setPaymentJob}
                       onView={viewJob}
                       searchable={false}
                       showCompany={false}

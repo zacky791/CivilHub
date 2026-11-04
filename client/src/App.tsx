@@ -276,8 +276,8 @@ export default function App() {
           />
         )}
         <aside className={`sidebar ${sidebar ? "sidebar-open" : ""}`}>
-          <NavLink to="/" className="brand-link" aria-label="CivilHub home">
-            <Logo />
+          <NavLink to="/" className="brand-link" aria-label="AKS SDN BHD home">
+            <Logo title="AKS SDN BHD" />
           </NavLink>
           <div className="nav-eyebrow">WORKSPACE</div>
           <nav>

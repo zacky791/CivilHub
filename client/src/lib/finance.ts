@@ -56,6 +56,26 @@ export const jobExpense = (jobId: string, expenses: Expense[]) =>
     expenses.filter((e) => e.jobId === jobId),
     (e) => e.amount,
   );
+export const monthKey = (date = today()) => date.slice(0, 7);
+export const ownerShare = (total: number, count: number) =>
+  Math.floor(total / count);
+export function ownerCalc(
+  total: number,
+  count: number,
+  epfRate: number,
+) {
+  const share = ownerShare(total, count),
+    epfEach = Math.floor((share * epfRate) / 100),
+    epfTotal = epfEach * count;
+  return {
+    share,
+    epfEach,
+    epfTotal,
+    netEach: share - epfEach,
+    epfRate,
+    count,
+  };
+}
 export function financials(
   jobs: Job[],
   expenses: Expense[],

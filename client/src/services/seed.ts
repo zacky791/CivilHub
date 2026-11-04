@@ -195,6 +195,7 @@ export function seedWorkspace(): Workspace {
     },
   ]);
   return {
+    payments: [],
     version: 1,
     jobs,
     expenses,

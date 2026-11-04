@@ -42,6 +42,13 @@ export const companies: Company[] = [
   },
 ];
 export const companyById = (id: string) => companies.find((c) => c.id === id)!;
+export const owners = [
+  { id: "owner-1", name: "Owner 1" },
+  { id: "owner-2", name: "Owner 2" },
+  { id: "owner-3", name: "Owner 3" },
+] as const;
+export const OWNER_COUNT = owners.length;
+export const EPF_RATE = 14;
 export const workTypes = [
   "MULL & Pavement",
   "Resurface",
@@ -51,6 +58,7 @@ export const workTypes = [
   "Other",
 ];
 export const expenseCategories = [
+  "Owner",
   "Materials",
   "Labour",
   "Transportation",
@@ -60,6 +68,7 @@ export const expenseCategories = [
   "Other",
 ];
 export const overheadCategories = [
+  "Owner",
   "Office Rental",
   "Administrative Salaries",
   "Utilities",

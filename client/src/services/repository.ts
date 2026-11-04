@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type {
   Attachment,
+  PaymentInput,
   ExpenseInput,
   JobInput,
   OverheadInput,
@@ -34,6 +35,12 @@ export function useSyncNotice() {
 export const refreshWorkspace = () =>
   isDemoMode ? Promise.resolve() : refreshCloudWorkspace();
 export const repository = {
+  async savePayment(input: PaymentInput, requestId?: string) {
+    return isDemoMode ? demo.savePayment(input, requestId) : cloud.savePayment(input, requestId);
+  },
+  async deletePayment(id: string) {
+    return isDemoMode ? demo.deletePayment(id) : cloud.deletePayment(id);
+  },
   async saveJob(input: JobInput, id?: string, requestId?: string) {
     return isDemoMode
       ? demo.saveJob(input, id)

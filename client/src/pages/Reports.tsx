@@ -26,7 +26,7 @@ import {
   today,
 } from "../lib/finance";
 import { useWorkspace } from "../services/repository";
-import { CompanyMark, Empty, SelectWrap, StatCard } from "../components/ui";
+import { Empty, SelectWrap, StatCard } from "../components/ui";
 const tooltipStyle = {
   borderRadius: 12,
   border: "1px solid #ebe8f1",
@@ -571,83 +571,6 @@ export default function Reports() {
               </div>
             </section>
           </div>
-          <section className="panel report-table">
-            <div className="panel-heading">
-              <div>
-                <h2>The numbers, together</h2>
-                <p>Company-level financial summary.</p>
-              </div>
-            </div>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Jobs</th>
-                    <th className="amount">Job value</th>
-                    <th className="amount">Direct expenses</th>
-                    <th className="amount">Overhead</th>
-                    <th className="amount">Estimated net</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((c) => (
-                    <tr key={c.id}>
-                      <td>
-                        <span className="company-cell">
-                          <CompanyMark {...c} small />
-                          {c.short}
-                        </span>
-                      </td>
-                      <td>{c.jobs}</td>
-                      <td className="amount">{money(c.revenue * 100)}</td>
-                      <td className="amount">{money(c.expenses * 100)}</td>
-                      <td className="amount">{money(c.overhead * 100)}</td>
-                      <td
-                        className={`amount cell-money ${c.net < 0 ? "text-rose" : "text-green"}`}
-                      >
-                        {money(c.net * 100)}
-                      </td>
-                    </tr>
-                  ))}
-                  {company === "all" && (
-                    <tr>
-                      <td>Shared / General</td>
-                      <td>—</td>
-                      <td className="amount">—</td>
-                      <td className="amount">—</td>
-                      <td className="amount">
-                        {money(
-                          sum(
-                            overheads.filter((o) => o.companyId === "shared"),
-                            (o) => o.amount,
-                          ),
-                        )}
-                      </td>
-                      <td className="amount text-rose">
-                        {money(
-                          -sum(
-                            overheads.filter((o) => o.companyId === "shared"),
-                            (o) => o.amount,
-                          ),
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td>Consolidated total</td>
-                    <td>{f.jobs}</td>
-                    <td className="amount">{money(f.revenue)}</td>
-                    <td className="amount">{money(f.direct)}</td>
-                    <td className="amount">{money(f.overhead)}</td>
-                    <td className="amount">{money(f.net)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </section>
         </>
       )}
       <div className="report-disclaimer">

@@ -6,10 +6,21 @@ import {
   Plus,
   Repeat2,
   Trash2,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
-import { companies, companyById, overheadCategories } from "../lib/constants";
-import { dateLabel, exportCSV, money, sum, today } from "../lib/finance";
+import {
+  companies,
+  companyById,
+  overheadCategories,
+} from "../lib/constants";
+import {
+  dateLabel,
+  exportCSV,
+  money,
+  sum,
+  today,
+} from "../lib/finance";
 import type { Overhead } from "../lib/types";
 import { repository, useWorkspace } from "../services/repository";
 import {
@@ -31,7 +42,8 @@ export default function Overheads() {
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [form, setForm] = useState<Overhead | "new" | null>(null),
-    [deleting, setDeleting] = useState<Overhead | null>(null);
+    [deleting, setDeleting] = useState<Overhead | null>(null),
+    [ownersOpen, setOwnersOpen] = useState(false);
   const rows = w.overheads
       .filter(
         (o) =>
@@ -55,6 +67,7 @@ export default function Overheads() {
     .filter((c) => c.value > 0)
     .sort((a, b) => b.value - a.value);
   const total = sum(rows, (o) => o.amount);
+  const ownerTotal = sum(rows.filter((o) => o.category === "Owner"), (o) => o.amount);
   return (
     <div className="page-enter">
       <div className="page-heading">
@@ -90,24 +103,15 @@ export default function Overheads() {
           note={`${date.slice(0, 4)} · matching filters`}
           type="value"
         />
-        <StatCard
-          label="Recurring entries"
-          value={String(rows.filter((o) => o.recurring).length)}
-          note="Recorded recurring cost periods"
-          type="jobs"
-        />
-        <StatCard
-          label="Shared / general costs"
-          value={money(
-            sum(
-              rows.filter((o) => o.companyId === "shared"),
-              (o) => o.amount,
-            ),
-          )}
-          note="Counted once in group reports"
-          type="balance"
-          accent
-        />
+        <div className="stat-card stat-owner">
+          <div className="stat-top">
+            <span>Owner</span>
+            <span className="stat-icon owner">
+              <Users size={17} />
+            </span>
+          </div>
+          <div className="stat-value">{money(ownerTotal)}</div>
+        </div>
       </div>
       <div className="filters-bar">
         <SelectWrap>
@@ -156,6 +160,13 @@ export default function Overheads() {
             onChange={(e) => setTo(e.target.value)}
           />
         </label>
+        <button
+          className="button button-small"
+          onClick={() => setOwnersOpen(true)}
+        >
+          <Users size={14} />
+          Owner
+        </button>
         {(company !== "all" || category !== "all" || from || to) && (
           <button
             className="text-button"
@@ -393,6 +404,13 @@ export default function Overheads() {
               toast(errorMessage(e), true);
             }
           }}
+        />
+      )}
+      {ownersOpen && (
+        <CostForm
+          kind="overhead"
+          ownerCost
+          onClose={() => setOwnersOpen(false)}
         />
       )}
     </div>

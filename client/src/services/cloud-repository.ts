@@ -3,6 +3,8 @@ import { companies, workTypes } from "../lib/constants";
 import { cents } from "../lib/finance";
 import type {
   Activity,
+  Payment,
+  PaymentInput,
   Attachment,
   CompanyId,
   Expense,
@@ -14,7 +16,7 @@ import type {
   Workspace,
 } from "../lib/types";
 import { createSupabaseClient } from "./supabase";
-import { expenseSchema, jobSchema, overheadSchema } from "./validation";
+import { expenseSchema, jobSchema, overheadSchema, paymentSchema } from "./validation";
 export interface CloudIdentity {
   userId: string;
   name: string;
@@ -28,6 +30,7 @@ const empty = (): Workspace => ({
   version: 1,
   jobs: [],
   expenses: [],
+  payments: [],
   overheads: [],
   clients: [],
   attachments: [],
@@ -152,6 +155,9 @@ function jobFrom(row: Row): Job {
     updatedAt: row.updated_at,
   };
 }
+function paymentFrom(row: Row): Payment {
+  return { id: row.id, jobId: row.job_id, amount: cents(String(row.amount)), date: row.payment_date, createdAt: row.created_at };
+}
 function expenseFrom(row: Row): Expense {
   return {
     id: row.id,
@@ -258,7 +264,7 @@ export async function initializeCloudWorkspace(
 export async function refreshCloudWorkspace() {
   const { account, client, token } = context();
   const sequence = ++refreshSequence;
-  const [companyRows, clientRows, jobs, expenses, overheads, files] =
+  const [companyRows, clientRows, jobs, expenses, overheads, files, payments] =
     await Promise.all(
       [
         "companies",
@@ -267,6 +273,7 @@ export async function refreshCloudWorkspace() {
         "job_expenses",
         "overhead_costs",
         "attachments",
+        "job_payments",
       ].map((t) => allRows(t, account.workspaceId)),
     );
   stillCurrent(token);
@@ -306,6 +313,7 @@ export async function refreshCloudWorkspace() {
     version: 1,
     jobs: jobs.map(jobFrom).sort((a, b) => b.date.localeCompare(a.date)),
     expenses: expenses.map(expenseFrom),
+    payments: payments.map(paymentFrom),
     overheads: overheads.map(overheadFrom),
     clients: clientRows.map((r) => r.name).sort(),
     attachments: files.map((r) => attachmentFrom(r, names)),
@@ -339,6 +347,7 @@ async function deleteRows(table: string, id: string, ownerIds: string[]) {
   };
   if (table === "jobs") {
     next.jobs = next.jobs.filter((j) => j.id !== id);
+    next.payments = next.payments.filter((p) => p.jobId !== id);
     next.expenses = next.expenses.filter((e) => e.jobId !== id);
   }
   if (table === "job_expenses")
@@ -361,6 +370,38 @@ async function deleteRows(table: string, id: string, ownerIds: string[]) {
   }
 }
 export const cloudRepository = {
+  async savePayment(input: PaymentInput, requestId?: string): Promise<Payment> {
+    const parsed = paymentSchema.parse(input);
+    const { account, client, token } = context(true);
+    if (!snapshot.jobs.some((j) => j.id === parsed.jobId)) throw new Error("Select an existing job.");
+    const id = requestId ?? crypto.randomUUID();
+    const { data, error } = await client.from("job_payments").upsert({
+      id, workspace_id: account.workspaceId, job_id: parsed.jobId,
+      amount: (parsed.amount / 100).toFixed(2), payment_date: parsed.date,
+    }, { onConflict: "id", ignoreDuplicates: true }).select("*").maybeSingle();
+    check(error);
+    stillCurrent(token);
+    let saved: Payment;
+    if (data) saved = paymentFrom(data);
+    else {
+      const { data: existing, error: readError } = await client.from("job_payments").select("*").eq("workspace_id", account.workspaceId).eq("id", id).single();
+      check(readError);
+      stillCurrent(token);
+      saved = paymentFrom(existing!);
+    }
+    changed();
+    publish({ ...snapshot, payments: [saved, ...snapshot.payments.filter((p) => p.id !== saved.id)] });
+    return saved;
+  },
+  async deletePayment(id: string) {
+    const { account, client, token } = context(true);
+    const { data, error } = await client.from("job_payments").delete().eq("workspace_id", account.workspaceId).eq("id", id).select("id");
+    check(error);
+    stillCurrent(token);
+    if (!data?.length) throw new Error("This payment no longer exists.");
+    changed();
+    publish({ ...snapshot, payments: snapshot.payments.filter((p) => p.id !== id) });
+  },
   async saveJob(
     input: JobInput,
     id?: string,

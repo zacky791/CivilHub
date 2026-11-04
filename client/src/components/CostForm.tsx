@@ -2,10 +2,12 @@ import { useState, useRef, type FormEvent } from "react";
 import { Paperclip, Plus, Save } from "lucide-react";
 import {
   companies,
+  EPF_RATE,
+  OWNER_COUNT,
   expenseCategories,
   overheadCategories,
 } from "../lib/constants";
-import { cents, today } from "../lib/finance";
+import { cents, money, today } from "../lib/finance";
 import type { CompanyId, Expense, Overhead } from "../lib/types";
 import { repository } from "../services/repository";
 import { addFiles } from "../services/files";
@@ -20,11 +22,13 @@ import {
 export default function CostForm({
   kind,
   jobId,
+  ownerCost = false,
   record,
   onClose,
 }: {
   kind: "expense" | "overhead";
   jobId?: string;
+  ownerCost?: boolean;
   record?: Expense | Overhead;
   onClose: () => void;
 }) {
@@ -35,6 +39,11 @@ export default function CostForm({
       (record as Overhead)?.recurring ?? false,
     );
   const isOverhead = kind === "overhead";
+  const isOwner = ownerCost || record?.category === "Owner";
+  const initialAmount = record ? (isOwner ? Math.round(record.amount / OWNER_COUNT) : record.amount) : undefined;
+  const [ownerAmount, setOwnerAmount] = useState<number | null>(initialAmount ?? null);
+  const epf = ownerAmount === null ? null : Math.round(ownerAmount * EPF_RATE / 100);
+  const costLabel = isOwner ? "Owner cost" : isOverhead ? "Overhead" : "Expense";
   const requestId = useRef(crypto.randomUUID());
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,10 +53,12 @@ export default function CostForm({
     try {
       const f = new FormData(e.currentTarget),
         base = {
-          description: String(f.get("description")).trim(),
-          category: String(f.get("category")),
+          description: isOwner
+            ? record?.description || "Owner cost"
+            : String(f.get("description")).trim(),
+          category: isOwner ? "Owner" : String(f.get("category")),
           date: String(f.get("date")),
-          amount: cents(String(f.get("amount"))),
+          amount: cents(String(f.get("amount"))) * (isOwner ? OWNER_COUNT : 1),
         };
       const saved = isOverhead
         ? await repository.saveOverhead(
@@ -73,7 +84,7 @@ export default function CostForm({
           await addFiles(saved.id, [file]);
         } catch (e) {
           toast(
-            `${isOverhead ? "Overhead" : "Expense"} saved. Receipt: ${errorMessage(e)}`,
+            `${costLabel} saved. Receipt: ${errorMessage(e)}`,
             true,
           );
           onClose();
@@ -81,7 +92,7 @@ export default function CostForm({
         }
       }
       toast(
-        `${isOverhead ? "Overhead" : "Expense"} ${record ? "updated" : "added"} successfully`,
+        `${costLabel} ${record ? "updated" : "added"} successfully`,
       );
       onClose();
     } catch (e) {
@@ -91,9 +102,11 @@ export default function CostForm({
   }
   return (
     <Modal
-      title={`${record ? "Edit" : "Add"} ${isOverhead ? "overhead cost" : "job expense"}`}
+      title={`${record ? "Edit" : "Add"} ${isOwner ? "owner cost" : isOverhead ? "overhead cost" : "job expense"}`}
       subtitle={
-        isOverhead
+        isOwner
+          ? "Record an independent owner cost. It will appear in the dashboard Owner total."
+          : isOverhead
           ? "Keep your operating costs in the picture."
           : "Record a direct cost against the original job value."
       }
@@ -120,6 +133,7 @@ export default function CostForm({
                 </SelectWrap>
               </label>
             )}
+            {!isOwner && (
             <label className="full-width">
               Expense description <span>*</span>
               <input
@@ -134,14 +148,16 @@ export default function CostForm({
                 maxLength={500}
               />
             </label>
+            )}
             <label>
               Category <span>*</span>
               <SelectWrap>
                 <select
+                  disabled={isOwner}
                   name="category"
                   defaultValue={
                     record?.category ??
-                    (isOverhead ? "Office Rental" : "Materials")
+                    (isOwner ? "Owner" : isOverhead ? "Office Rental" : "Materials")
                   }
                 >
                   {(isOverhead ? overheadCategories : expenseCategories).map(
@@ -152,10 +168,45 @@ export default function CostForm({
                 </select>
               </SelectWrap>
             </label>
-            <label>
-              Amount <span>*</span>
-              <MoneyInput defaultValue={record?.amount} />
+            <label onChange={(event) => {
+              if (!isOwner || !(event.target instanceof HTMLInputElement)) return;
+              try {
+                setOwnerAmount(cents(event.target.value));
+              } catch {
+                setOwnerAmount(null);
+              }
+            }}>
+              {isOwner ? "Amount per owner" : "Amount"} <span>*</span>
+              <MoneyInput defaultValue={initialAmount} />
             </label>
+            {isOwner && (
+              <div className="owner-calc-list full-width" aria-live="polite">
+                <div className="owner-calc-row">
+                  <span>Owners (fixed)</span>
+                  <strong>{OWNER_COUNT} people</strong>
+                </div>
+                <div className="owner-calc-row">
+                  <span>EPF ({EPF_RATE}%) per owner</span>
+                  <strong>{epf === null ? "—" : money(epf, true)}</strong>
+                </div>
+                <div className="owner-calc-row owner-calc-net">
+                  <span>Net per owner after EPF</span>
+                  <strong>{ownerAmount === null || epf === null ? "—" : money(ownerAmount - epf, true)}</strong>
+                </div>
+                <div className="owner-calc-row">
+                  <span>Total EPF × {OWNER_COUNT} owners</span>
+                  <strong>{epf === null ? "—" : money(epf * OWNER_COUNT, true)}</strong>
+                </div>
+                <div className="owner-calc-row">
+                  <span>Total net × {OWNER_COUNT} owners</span>
+                  <strong>{ownerAmount === null || epf === null ? "—" : money((ownerAmount - epf) * OWNER_COUNT, true)}</strong>
+                </div>
+                <div className="owner-calc-row owner-calc-net">
+                  <span>Total owner cost × {OWNER_COUNT} (including EPF)</span>
+                  <strong>{ownerAmount === null ? "—" : money(ownerAmount * OWNER_COUNT, true)}</strong>
+                </div>
+              </div>
+            )}
             <label className="full-width">
               Expense date <span>*</span>
               <input
@@ -234,7 +285,7 @@ export default function CostForm({
               ? "Saving…"
               : record
                 ? "Save changes"
-                : `Add ${isOverhead ? "overhead" : "expense"}`}
+                : `Add ${isOwner ? "owner cost" : isOverhead ? "overhead" : "expense"}`}
           </button>
         </div>
       </form>
