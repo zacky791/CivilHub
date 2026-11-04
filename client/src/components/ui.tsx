@@ -25,7 +25,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { dateLabel, download, money } from "../lib/finance";
+import { dateLabel, download, formatMoneyInput, money } from "../lib/finance";
 import { useWorkspace } from "../services/repository";
 import { addFiles, getFile, removeFile } from "../services/files";
 export function Logo({ small = false }: { small?: boolean }) {
@@ -122,7 +122,27 @@ export function Modal({
     const firstInput = el?.querySelector<HTMLElement>(
       'input:not([type="file"]),select,textarea',
     );
-    (firstInput ?? el)?.focus();
+    // Focusing a field immediately opens/zooms the keyboard on iOS.
+    const mobile = window.matchMedia("(max-width: 760px)");
+    (mobile.matches ? el : (firstInput ?? el))?.focus({ preventScroll: true });
+    const viewport = window.visualViewport;
+    const backdrop = el?.parentElement;
+    function fitViewport() {
+      if (!backdrop) return;
+      if (mobile.matches && viewport) {
+        backdrop.style.top = `${viewport.offsetTop}px`;
+        backdrop.style.height = `${viewport.height}px`;
+        backdrop.style.bottom = "auto";
+      } else {
+        backdrop.style.top = "";
+        backdrop.style.height = "";
+        backdrop.style.bottom = "";
+      }
+    }
+    fitViewport();
+    viewport?.addEventListener("resize", fitViewport);
+    viewport?.addEventListener("scroll", fitViewport);
+    window.addEventListener("resize", fitViewport);
     function key(e: KeyboardEvent) {
       const dialogs = document.querySelectorAll('[role="dialog"]');
       if (dialogs.item(dialogs.length - 1) !== el) return;
@@ -152,6 +172,9 @@ export function Modal({
       openModals--;
       document.body.style.overflow = openModals > 0 ? "hidden" : "";
       document.removeEventListener("keydown", key);
+      viewport?.removeEventListener("resize", fitViewport);
+      viewport?.removeEventListener("scroll", fitViewport);
+      window.removeEventListener("resize", fitViewport);
       if (previous?.isConnected) previous.focus();
     };
   }, []);
@@ -315,9 +338,34 @@ export function MoneyInput({
         placeholder="0.00"
         defaultValue={
           defaultValue !== undefined
-            ? (defaultValue / 100).toFixed(2)
+            ? formatMoneyInput((defaultValue / 100).toFixed(2))
             : undefined
         }
+        onChange={(event) => {
+          const input = event.currentTarget;
+          const raw = input.value;
+          const start = input.selectionStart ?? raw.length;
+          const end = input.selectionEnd ?? start;
+          const formatted = formatMoneyInput(raw);
+          if (formatted === raw) return;
+          const position = (offset: number) => {
+            const count = raw.slice(0, offset).replace(/,/g, "").length
+              + (offset > 0 && raw.trim().startsWith(".") ? 1 : 0);
+            if (count === 0) return 0;
+            let seen = 0;
+            for (let i = 0; i < formatted.length; i++) {
+              if (formatted[i] !== ",") seen++;
+              if (seen === count) return i + 1;
+            }
+            return formatted.length;
+          };
+          input.value = formatted;
+          input.setSelectionRange(position(start), position(end));
+        }}
+        onBlur={(event) => {
+          const input = event.currentTarget;
+          if (/^[\d,]+\.$/.test(input.value)) input.value += "00";
+        }}
         required={required}
         pattern="[0-9,]+(\.[0-9]{1,2})?"
         maxLength={18}

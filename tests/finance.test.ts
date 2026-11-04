@@ -3,6 +3,7 @@ import {
   cents,
   dateLabel,
   financials,
+  formatMoneyInput,
   jobExpense,
 } from "../client/src/lib/finance";
 import { seedWorkspace } from "../client/src/services/seed";
@@ -50,4 +51,27 @@ describe("exact money calculations", () => {
   });
   it("formats Malaysian dates without timezone rollover", () =>
     expect(dateLabel("2026-11-03")).toBe("03/11/2026"));
+});
+
+
+describe("money input grouping", () => {
+  it.each([
+    ["", ""], ["123", "123"], ["1437", "1,437"],
+    ["65768", "65,768"], ["1234567", "1,234,567"],
+    ["999999999.99", "999,999,999.99"], ["0", "0"],
+    ["0.05", "0.05"], ["1437.50", "1,437.50"],
+    ["1437.", "1,437."], [".5", "0.5"],
+    ["1,234.50", "1,234.50"],
+  ])("formats %s as %s", (input, expected) => {
+    expect(formatMoneyInput(input)).toBe(expected);
+  });
+  it.each(["-12", "1e3", "abc", "1.2.3"])("keeps invalid input %s visible for validation", (input) => {
+    expect(formatMoneyInput(input)).toBe(input);
+    expect(() => cents(formatMoneyInput(input))).toThrow();
+  });
+  it("does not round excess decimals or oversized amounts into valid prices", () => {
+    expect(() => cents(formatMoneyInput("1234.567"))).toThrow();
+    expect(() => cents(formatMoneyInput("1000000000"))).toThrow();
+    expect(cents(formatMoneyInput("65768.09"))).toBe(6576809);
+  });
 });

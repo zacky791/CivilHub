@@ -12,6 +12,14 @@ export function cents(input: string): number {
     throw new Error("Amount is too large.");
   return value;
 }
+// Group the whole part as text so editing never rounds or loses precision.
+export function formatMoneyInput(input: string): string {
+  const value = input.trim().replace(/,/g, "");
+  if (!value || !/^\d*(?:\.\d*)?$/.test(value)) return input;
+  const [whole, fraction] = value.split(".");
+  const grouped = (whole || "0").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction === undefined ? grouped : `${grouped}.${fraction}`;
+}
 export const money = (amount: number, decimals = amount % 100 !== 0) =>
   new Intl.NumberFormat("en-MY", {
     style: "currency",

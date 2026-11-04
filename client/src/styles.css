@@ -5362,3 +5362,89 @@ th {
 .topbar-left{min-width:0;flex:1}.breadcrumb-current{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topbar-right{flex-shrink:0}@media(max-width:360px){.breadcrumb-home,.topbar-left>.lucide-chevron-right{display:none}}
 .auth-links{display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-top:20px}.auth-links .text-button{font-size:11px}.auth-hint{font-size:10px!important;line-height:1.8;color:#947ca6;margin:10px 0 18px}.auth-success{display:flex;align-items:flex-start;gap:9px;background:#f0f8f2;border:1px solid #d9eada;border-radius:9px;padding:13px;font-size:11px;color:#63846b;line-height:1.8;margin-bottom:20px}.auth-success>svg{flex-shrink:0;margin-top:2px}.auth-status{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:17px;text-align:center;padding:30px;background:#f8f5fb}.auth-status h1{font-size:25px;color:#795e8e}.auth-status h2{font-size:20px;color:#795e8e}.auth-status p{font-size:12px;color:#9c86ac;max-width:520px}.auth-status>div{display:flex;gap:10px;margin-top:9px}.auth-spinner{height:32px;width:32px;border:3px solid #e8ddf3;border-top-color:#9672c4;border-radius:50%;animation:spin .8s linear infinite}.setup-company-list{display:flex;flex-wrap:wrap;gap:9px;margin:17px 0}.setup-company-list>span{display:flex;align-items:center;gap:6px;background:#fbf7fd;border:1px solid #efe5f5;border-radius:7px;padding:7px;font-size:9px;color:#967da5}.sync-warning{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 17px;margin-bottom:20px;background:#fff7ed;border:1px solid #f3e3c9;border-radius:10px;font-size:11px;color:#a18461}.sync-warning .button{min-height:30px;font-size:10px}.login-form .form-error{margin-bottom:17px}.login-form-area .login-form{padding:20px 0}.login-form .demo-badge{display:inline-flex;gap:6px}
 .user-profile>div{min-width:0}.user-profile strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+
+/* Mobile dialogs follow the visible viewport, including Safari chrome/keyboard. */
+@media (max-width: 760px) {
+  .modal-backdrop {
+    height: 100dvh;
+    box-sizing: border-box;
+    padding: max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .modal {
+    max-height: 100%;
+    overflow: hidden;
+    border-radius: 16px;
+    min-height: 0;
+  }
+  .modal > form {
+    overflow: hidden;
+    flex: 1 1 auto;
+  }
+  .modal-body {
+    flex: 1 1 auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-block: 20px;
+    padding: 18px 16px;
+  }
+  .modal-heading {
+    padding: 16px;
+    align-items: center;
+  }
+  .modal-heading h2 { font-size: 18px; color: #65477c; }
+  .modal-heading p { font-size: 12px; line-height: 1.5; color: #857292; }
+  .modal-heading .icon-button {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    margin: 0;
+  }
+  .modal-footer {
+    padding: 12px 16px;
+    border-radius: 0 0 16px 16px;
+    gap: 10px;
+  }
+  .modal-footer .footer-note { display: none; }
+  .modal-footer .button {
+    min-height: 46px;
+    font-size: 14px;
+    padding: 0 16px;
+  }
+  .modal-footer .button-primary { flex: 1; }
+  .modal-footer .button > svg { width: 16px; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .form-grid > label { font-size: 13px; color: #80658f; min-width: 0; }
+  .form-grid input,
+  .form-grid select,
+  .form-grid textarea,
+  .login-form input,
+  .login-form select,
+  .modal input,
+  .modal select,
+  .modal textarea { font-size: 16px; min-width: 0; max-width: 100%; }
+  .form-grid input, .form-grid select { min-height: 48px; }
+  .form-grid textarea { min-height: 100px; }
+  .form-grid label > small:not(.inline-optional) {
+    font-size: 12px;
+    color: #887694;
+  }
+  .inline-optional { font-size: 12px; }
+  .form-company { margin-bottom: 18px; }
+  .form-company strong { font-size: 13px; color: #80658f; }
+  .form-company span:not(.company-mark) { font-size: 11px; }
+  .location-field { flex-wrap: wrap; padding: 0 12px; gap: 0 8px; }
+  .location-field input { flex: 1; width: 0; font-size: 16px; }
+  .location-field .text-button {
+    width: 100%;
+    justify-content: flex-end;
+    border-top: 1px solid #eee8f5;
+    min-height: 44px;
+    font-size: 12px;
+    gap: 6px;
+  }
+  .location-field .text-button svg { width: 15px; }
+}
